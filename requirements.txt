@@ -1,8 +1,14 @@
-certifi==2018.8.13
-chardet==3.0.4
-future==0.16.0
-idna==2.7
-python-dotenv==0.9.1
-python-telegram-bot==10.1.0
-requests==2.19.1
-urllib3==1.24.2
+certifi==2020.6.20
+cffi @ file:///home/conda/feedstock_root/build_artifacts/cffi_1595805769248/work
+click==7.1.2
+cryptography @ file:///home/conda/feedstock_root/build_artifacts/cryptography_1595348770643/work
+decorator==4.4.2
+future==0.18.2
+idna @ file:///home/conda/feedstock_root/build_artifacts/idna_1593328102638/work
+pycparser @ file:///home/conda/feedstock_root/build_artifacts/pycparser_1593275161868/work
+PySocks==1.7.1
+python-dotenv @ file:///home/conda/feedstock_root/build_artifacts/python-dotenv_1593788306353/work
+python-telegram-bot @ file:///home/conda/feedstock_root/build_artifacts/python-telegram-bot_1594075855617/work
+six @ file:///home/conda/feedstock_root/build_artifacts/six_1590081179328/work
+tornado==6.0.4
+ujson @ file:///home/conda/feedstock_root/build_artifacts/ujson_1591214132976/work

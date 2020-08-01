@@ -12,11 +12,11 @@ Rode o comando `pip install -r requirements.txt` para instalar as libs necessár
 
 - /prefs => Retorna lista de interesses (caixa de seleção). A pessoa pode marcar ou desmarcar o que ela quiser.
 
-- /show => Mostra uma pessoa que tem interesses em comum (vai com base no ranking)
+- /show => Mostra uma pessoa que tem interesses em comum (vai com base no ranking). Embaixo, um botão para enviar a solicitação de conexão deve existir.
 
-- /random => Mostra uma pessoa aleatória
+- /random => Mostra uma pessoa aleatória. Embaixo, um botão para enviar a solicitação de conexão deve existir.
 
-- [IDEIA / FEATURE ADICIONAL] /opposite => Mostra uma pessoa que tem interesses opostos (vai com base no ranking reverso)
+- [IDEIA / FEATURE ADICIONAL] /opposite => Mostra uma pessoa que tem interesses opostos (vai com base no ranking reverso). Embaixo, um botão para enviar a solicitação de conexão deve existir.
 
 - /pending => Mostra todas as solicitações de conexão que aquela pessoa possui e para as quais ela ainda não deu uma resposta. Mostra, para cada solicitação, a descrição da pessoa e dois botões: conectar ou descartar).
 

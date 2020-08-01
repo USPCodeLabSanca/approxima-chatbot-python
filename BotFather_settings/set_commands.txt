@@ -1,0 +1,5 @@
+prefs - Retorna uma lista (caixa de seleção) com todas as categorias de interesse. A partir daí, você poderá adicionar ou remover interesses à vontade.
+show - Mostra uma pessoa que tem interesses em comum.
+random - Mostra uma pessoa aleatória.
+pending - Mostra todas as solicitações de conexão que você possui e ainda não respondeu.
+friends - Mostra o contato de todas as pessoas com que você já se conectou.

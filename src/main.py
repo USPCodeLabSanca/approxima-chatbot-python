@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 from telegram.ext import CommandHandler, Filters, MessageHandler, Updater
+import logging
 
 load_dotenv()
 
@@ -31,6 +32,10 @@ def unknown(bot, update):
 
 
 def main():
+    logger = logging.getLogger(__name__)
+    logging.basicConfig(level=logging.INFO,
+                        format="%(asctime)s [%(levelname)s] %(message)s")
+
     updater = Updater(token=TELEGRAM_TOKEN)
 
     dispatcher = updater.dispatcher
@@ -46,8 +51,9 @@ def main():
     )
 
     updater.start_polling()
-
+    logging.info("=== Bot running! ===")
     updater.idle()
+    logging.info("=== Bot shutting down! ===")
 
 
 if __name__ == '__main__':

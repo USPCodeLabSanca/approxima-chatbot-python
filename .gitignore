@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Heroku
+venv/
+
 # VS Code stuff
 .vscode/
 

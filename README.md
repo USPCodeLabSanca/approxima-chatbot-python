@@ -21,3 +21,5 @@ Rode o comando `pip install -r requirements.txt` para instalar as libs necessár
 - /pending => Mostra todas as solicitações de conexão que aquela pessoa possui e para as quais ela ainda não deu uma resposta. Mostra, para cada solicitação, a descrição da pessoa e dois botões: conectar ou descartar).
 
 - /friends => Mostra o contato (@ do Tele) de todas as pessoas com que o usuário já se conectou.
+
+- /help => Mostra os comandos disponíveis.

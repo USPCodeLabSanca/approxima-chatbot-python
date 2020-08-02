@@ -1,0 +1,10 @@
+categories = ['Filmes', 'Séries', 'Shows', 'Jogos', 'Livros e Literatura',
+            'Beleza e Fitness', 'Idiomas', 'Ciência e Ensino (tópicos acadêmicos)',
+            'Hardware', 'Software', 'Esportes', 'Dança', 'Música', 'Pintura e Desenho',
+            'Culinária', 'Mão na massa (consertos, costura, tricô, etc.)', 'Casa e Jardim',
+            'Pets', 'Compras', 'Trabalho voluntário', 'Hobbies e Lazer', 'Política',
+            'Finanças', 'Viagens e Turismo', 'Intercâmbio', 'Automóveis e Veículos',
+            'Esotérico e Holístico', 'Espiritualidade', 'Times do coração',
+            'Causas (ambientais, feminismo, vegan, etc.)', 'Moda',
+            'Empreenderismo e Negócios', 'Imobiliário', 'Artesanato', 'Fotografia',
+            'História', 'Mitologia', 'Pessoas e Sociedade', 'Anime e Mangá']

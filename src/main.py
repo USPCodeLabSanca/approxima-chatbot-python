@@ -1,14 +1,38 @@
 import os
 from dotenv import load_dotenv
-from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
-from telegram.ext import Updater, Filters,  CommandHandler, MessageHandler, ConversationHandler
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.ext import Updater, Filters,  CommandHandler, MessageHandler, ConversationHandler, CallbackQueryHandler
 import logging
 
 load_dotenv()
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
-interests = [['Filmes', 'Séries', 'Shows', 'Jogos', 'Livros e Literatura', 'Beleza e Fitness', 'Idiomas', 'Ciência e Ensino (tópicos acadêmicos)', 'Hardware', 'Software', 'Esportes', 'Dança', 'Música', 'Pintura e Desenho', 'Culinária', 'Mão na massa (consertos, costura, tricô, etc.)', 'Casa e Jardim', 'Pets', 'Compras', 'Trabalho voluntário', 'Hobbies e Lazer', 'Política', 'Finanças', 'Viagens e Turismo', 'Intercâmbio', 'Automóveis e Veículos', 'Esotérico e Holístico', 'Espiritualidade', 'Times do coração', 'Causas (ambientais, feminismo, vegan, etc.)', 'Moda', 'Empreenderismo e Negócios', 'Imobiliário', 'Artesanato', 'Fotografia', 'História', 'Mitologia', 'Pessoas e Sociedade', 'Anime e Mangá']]
+categories = ['Filmes', 'Séries', 'Shows', 'Jogos', 'Livros e Literatura',
+            'Beleza e Fitness', 'Idiomas', 'Ciência e Ensino (tópicos acadêmicos)',
+            'Hardware', 'Software', 'Esportes', 'Dança', 'Música', 'Pintura e Desenho',
+            'Culinária', 'Mão na massa (consertos, costura, tricô, etc.)', 'Casa e Jardim',
+            'Pets', 'Compras', 'Trabalho voluntário', 'Hobbies e Lazer', 'Política',
+            'Finanças', 'Viagens e Turismo', 'Intercâmbio', 'Automóveis e Veículos',
+            'Esotérico e Holístico', 'Espiritualidade', 'Times do coração',
+            'Causas (ambientais, feminismo, vegan, etc.)', 'Moda',
+            'Empreenderismo e Negócios', 'Imobiliário', 'Artesanato', 'Fotografia',
+            'História', 'Mitologia', 'Pessoas e Sociedade', 'Anime e Mangá']
+
+# Give each category an ID
+categories = enumerate(categories)
+
+def normalizeCategories(categories, num_per_row=1):
+    new_categories = []
+    new_row = []
+    for id, cat in categories:
+        if id > 0 and id % num_per_row == 0: # start a new row
+            new_categories.append(new_row[:]) # makes a copy
+            new_row = []
+            new_row.append((id, cat))
+        else:
+            new_row.append((id, cat))
+    return new_categories
 
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -26,7 +50,17 @@ def start(update, context):
 # prefs => Retorna lista de interesses (caixa de seleção). A pessoa pode marcar
 # ou desmarcar o que ela quiser.
 def prefs(update, context):
-    update.message.reply_text(update.message.text)
+    keyboard = [ [ InlineKeyboardButton(cat + "✅", callback_data=str(id)) for id, cat in row] for row in normalizeCategories(categories, 1) ]
+    update.message.reply_text('Escolha suas categorias de interesse:', reply_markup=InlineKeyboardMarkup(keyboard))
+
+def button(update, context):
+    query = update.callback_query
+
+    # CallbackQueries need to be answered, even if no notification to the user is needed
+    # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
+    query.answer()
+
+    query.edit_message_text(text="Selected option: {}".format(query.data))
 
 # show => Mostra uma pessoa que tem interesses em comum (vai com base no ranking).
 # Embaixo, um botão para enviar a solicitação de conexão deve existir.
@@ -69,11 +103,8 @@ def main():
     updater = Updater(token=TELEGRAM_TOKEN, use_context=True)
 
     updater.dispatcher.add_handler(CommandHandler("start", start))
-    updater.dispatcher.add_handler(CommandHandler("prefs", start))
-    updater.dispatcher.add_handler(CommandHandler("show", start))
-    updater.dispatcher.add_handler(CommandHandler("random", start))
-    updater.dispatcher.add_handler(CommandHandler("pending", start))
-    updater.dispatcher.add_handler(CommandHandler("friends", start))
+    updater.dispatcher.add_handler(CommandHandler("prefs", prefs))
+    updater.dispatcher.add_handler(CallbackQueryHandler(button))
     updater.dispatcher.add_handler(CommandHandler("help", help_command))
     updater.dispatcher.add_handler(MessageHandler(Filters.all, unknown))
 

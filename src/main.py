@@ -48,29 +48,31 @@ logging.getLogger(__name__)
 BD = {}
 
 # States
-REGISTER_NAME, REGISTER_BIO, CHOOSE_ACTION, PREFS, SHOW, RANDOM, PENDING, FRIENDS, HELP = range(
-    9)
-# States for substate PREFS
-MORE, FINISH = range(9, 11)
+REGISTER_NAME, REGISTER_BIO, CHOOSE_ACTION = range(3)
+# States for substate CHOOSE_ACTION
+MORE, FINISH = range(3, 5)
 
 
 # start => Inicia o bot. Se a pessoa não estiver cadastrada na base de dados
 # (dá pra ver pelo ID do Tele), pede para ela fornecer
 # um nome, uma pequena descrição pessoal e, por último para escolher seus interesses iniciais.
 
+def help(update, context):
+    text = "/prefs - retorna uma lista com todas as categorias de interesse. A partir dela que você poderá adicionar ou remover interesses.\n"
+    text += "/show - mostra uma pessoa que tem interesses em comum.\n"
+    text += "/pending - mostra todas as solicitações de conexão que você possui e ainda não respondeu.\n"
+    text += "/friends - mostra o contato de todas as pessoas com que você já se conectou.\n"
+    text += "/help - mostra novamente essa lista. Alternativamente, você pode digitar \"/\" e a lista de comando também aparecerá!"
+    update.message.reply_text(text)
+    return CHOOSE_ACTION
+
 
 def start(update, context):
     # Checa se o usuário já está no BD
     if update.effective_user.id in BD:
-        keyboard = [
-            [InlineKeyboardButton('Prefs', callback_data="/prefs"),
-             InlineKeyboardButton('Show', callback_data="/show")],
-            [InlineKeyboardButton('Pending', callback_data="/pending"),
-             InlineKeyboardButton('Friends', callback_data="/friends")]
-        ]
-        update.message.reply_text("Bora começar a usar o aplicativo!\nMe diz: o que você quer fazer agora? :)",
-                                  reply_markup=InlineKeyboardMarkup(keyboard))
-        return CHOOSE_ACTION
+        update.message.reply_text(
+            "Bora começar a usar o aplicativo!\nMe diz: o que você quer fazer agora? :)\n")
+        help(update, context)
 
     # Caso contrario, o usuario devera se registrar
     update.message.reply_text(
@@ -92,10 +94,10 @@ def register_bio(update, context):
 
     # Joga as informacoes no BD
     BD[update.effective_user.id] = context.user_data
-    return PREFS
+    return CHOOSE_ACTION
 
-# prefs => Retorna lista de interesses (caixa de seleção). A pessoa pode marcar
-# ou desmarcar o que ela quiser.
+    # prefs => Retorna lista de interesses (caixa de seleção). A pessoa pode marcar
+    # ou desmarcar o que ela quiser.
 
 
 def prefs(update, context):
@@ -119,21 +121,13 @@ def end_selection(update, context):
     update.message.reply_text('Selection ended')
 
 
-def button(update, context):
-    query = update.callback_query
-
-    # CallbackQueries need to be answered, even if no notification to the user is needed
-    # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
-    query.answer()
-
-    query.edit_message_text(text="Selected option: {}".format(query.data))
-
 # show => Mostra uma pessoa que tem interesses em comum (vai com base no ranking).
 # Embaixo, um botão para enviar a solicitação de conexão deve existir.
 
 
 def show(update, context):
-    update.message.reply_text(update.message.text)
+    update.message.reply_text('Mostrei um amigo')
+    return CHOOSE_ACTION
 
 # random => Mostra uma pessoa aleatória. Embaixo, um botão para enviar a solicitação
 # de conexão deve existir.
@@ -141,6 +135,7 @@ def show(update, context):
 
 def random(update, context):
     update.message.reply_text('Random!!!')
+    return CHOOSE_ACTION
 
 # pending => Mostra todas as solicitações de conexão que aquela pessoa possui e
 # para as quais ela ainda não deu uma resposta. Mostra, para cada solicitação,
@@ -148,26 +143,16 @@ def random(update, context):
 
 
 def pending(update, context):
-    update.message.reply_text(update.message.text)
+    update.message.reply_text('Mostrei os que faltam repsonde')
+    return CHOOSE_ACTION
 
 # friends => Mostra o contato (@ do Tele) de todas as pessoas com que o usuário
 # já se conectou.
 
 
 def friends(update, context):
-    update.message.reply_text(update.message.text)
-
-# help => Mostra os comandos disponíveis.
-
-
-def help_command(update, context):
-    reply_message = 'prefs - retorna uma lista (caixa de seleção) com todas as categorias de interesse. A partir daí, você poderá adicionar ou remover interesses à vontade.\
-        show - mostra uma pessoa que tem interesses em comum.\
-        random - mostra uma pessoa aleatória.\
-        pending - mostra todas as solicitações de conexão que você possui e ainda não respondeu.\
-        friends - mostra o contato de todas as pessoas com que você já se conectou.\
-        help - mostra os comandos que você pode usar'
-    update.message.reply_text(reply_message)
+    update.message.reply_text('Mostrei suas conexoes')
+    return CHOOSE_ACTION
 
 # mensagem ou comando desconhecido
 
@@ -192,7 +177,7 @@ def main():
         fallbacks=[MessageHandler(Filters.text, end_selection)],
 
         map_to_parent={
-            ConversationHandler.END: REGISTER_NAME
+            ConversationHandler.END: CHOOSE_ACTION
         }
     )
 
@@ -206,31 +191,13 @@ def main():
             REGISTER_BIO: [MessageHandler(Filters.text,
                                           register_bio)],
 
-            # CHOOSE_ACTION: [
-            #     MessageHandler(Filters.text & ~(Filters.command | Filters.regex('^Done$')),
-            #                    regular_choice)],
-
-            PREFS: [prefs_handler],
-
-            # SHOW: [
-            #     MessageHandler(Filters.text & ~(Filters.command | Filters.regex('^Done$')),
-            #                    received_information)],
-
-            # RANDOM: [
-            #     MessageHandler(Filters.text & ~(Filters.command | Filters.regex('^Done$')),
-            #                    received_information)],
-
-            # PENDING: [
-            #     MessageHandler(Filters.text & ~(Filters.command | Filters.regex('^Done$')),
-            #                    received_information)],
-
-            # FRIENDS: [
-            #     MessageHandler(Filters.text & ~(Filters.command | Filters.regex('^Done$')),
-            #                    received_information)],
-
-            # HELP: [
-            #     MessageHandler(Filters.text & ~(Filters.command | Filters.regex('^Done$')),
-            #                    received_information)],
+            CHOOSE_ACTION: [
+                prefs_handler,
+                CommandHandler('show', show),
+                CommandHandler('pending', pending),
+                CommandHandler('friends', friends),
+                CommandHandler('help', help),
+            ],
         },
 
         fallbacks=[CommandHandler('start', start)]

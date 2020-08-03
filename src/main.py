@@ -38,6 +38,8 @@ def normalizeCategories(categories, num_per_row=1):
     return new_categories
 
 
+norm_categories = normalizeCategories(categories, 1)
+
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -49,8 +51,8 @@ BD = {}
 
 # States
 REGISTER_NAME, REGISTER_BIO, CHOOSE_ACTION = range(3)
-# States for substate CHOOSE_ACTION
-MORE, FINISH = range(3, 5)
+# States for interests conversation
+CHOOSING = 3
 
 
 # start => Inicia o bot. Se a pessoa não estiver cadastrada na base de dados
@@ -58,11 +60,12 @@ MORE, FINISH = range(3, 5)
 # um nome, uma pequena descrição pessoal e, por último para escolher seus interesses iniciais.
 
 def help(update, context):
-    text = "/prefs - retorna uma lista com todas as categorias de interesse. A partir dela que você poderá adicionar ou remover interesses.\n"
-    text += "/show - mostra uma pessoa que tem interesses em comum.\n"
-    text += "/pending - mostra todas as solicitações de conexão que você possui e ainda não respondeu.\n"
-    text += "/friends - mostra o contato de todas as pessoas com que você já se conectou.\n"
-    text += "/help - mostra novamente essa lista. Alternativamente, você pode digitar \"/\" e a lista de comando também aparecerá!"
+    text = "/prefs - Retorna uma lista com todas as categorias de interesse. A partir dela que você poderá adicionar ou remover interesses.\n"
+    text += "/show - Mostra uma pessoa que tem interesses em comum.\n"
+    text += "/random - Mostra uma pessoa aleatória.\n"
+    text += "/pending - Mostra todas as solicitações de conexão que você possui e ainda não respondeu.\n"
+    text += "/friends - Mostra o contato de todas as pessoas com que você já se conectou.\n"
+    text += "/help - Mostra novamente essa lista. Alternativamente, você pode digitar \"/\" e a lista de comando também aparecerá!"
     update.message.reply_text(text)
     return CHOOSE_ACTION
 
@@ -81,8 +84,10 @@ def start(update, context):
 
 
 def register_name(update, context):
-    update.message.reply_text(
-        f"Seu nome é:\n \"{update.message.text}\".\n\nLegal! Agora, me conte um pouco mais sobre seus gostos... Usaremos essa descrição para te apresentar para os outros usuários do Approxima.")
+    response = f"Seu nome é:\n \"{update.message.text}\".\n\n"
+    response += "Legal! Agora, me conte um pouco mais sobre seus gostos... Usaremos essa descrição para te apresentar para os outros usuários do Approxima."
+
+    update.message.reply_text(response)
     context.user_data['name'] = update.message.text
     return REGISTER_BIO
 
@@ -91,6 +96,9 @@ def register_bio(update, context):
     update.message.reply_text(
         f"Sua mini bio é:\n \"{update.message.text}\".\n\nBoa! Agora só falta você adicionar alguns interesses para começar a usar o app!\nClique aqui --> /prefs")
     context.user_data['bio'] = update.message.text
+
+    # Comeca elx com 0 categorias selecionadas
+    context.user_data['interests'] = []
 
     # Joga as informacoes no BD
     BD[update.effective_user.id] = context.user_data
@@ -101,24 +109,61 @@ def register_bio(update, context):
 
 
 def prefs(update, context):
+    cats = context.user_data['interests']
 
-    if context.user_data.get('interests'):
-        cats = context.user_data['interests'].copy()
-    else:
-        cats = ['Teste']
-
-    update.message.reply_text(str(cats))
-
-    keyboard = [[InlineKeyboardButton("✅" + cat, callback_data=str(id))
-                 for id, cat in row] for row in normalizeCategories(categories, 1)]
+    keyboard = [
+        [
+            InlineKeyboardButton("☑ " + cat, callback_data=str(id)) if id in cats
+            else InlineKeyboardButton(cat, callback_data=str(id))
+            for id, cat in row
+        ]
+        for row in norm_categories
+    ]
     keyboard.append([InlineKeyboardButton("ENVIAR", callback_data="finish")])
+
     update.message.reply_text(
         'Escolha suas categorias de interesse:', reply_markup=InlineKeyboardMarkup(keyboard))
-    return REGISTER_NAME
+    return CHOOSING
 
 
-def end_selection(update, context):
-    update.message.reply_text('Selection ended')
+def mark_category(update, context):
+    update.callback_query.answer()  # await for answer
+
+    cats = context.user_data['interests']
+
+    # Trata a resposta anterior
+    data_id = int(update.callback_query.data)
+    if data_id in cats:
+        cats.remove(data_id)
+    else:
+        cats.append(data_id)
+
+    # Constroi o novo teclado
+    keyboard = [
+        [
+            InlineKeyboardButton("☑ " + cat, callback_data=str(id)) if id in cats
+            else InlineKeyboardButton(cat, callback_data=str(id))
+            for id, cat in row
+        ]
+        for row in norm_categories
+    ]
+    keyboard.append([InlineKeyboardButton(
+        "ENVIAR", callback_data="finish")])
+
+    update.callback_query.edit_message_reply_markup(
+        reply_markup=InlineKeyboardMarkup(keyboard))
+
+    return CHOOSING
+
+
+def submit_selection(update, context):
+    update.callback_query.answer()  # await for answer
+
+    # Guarda as informacoes no BD
+    # codigo aqui... (ta funfando por conta da lista ser passada por referencia)
+
+    update.effective_message.reply_text('Seus interesses foram atualizados!')
+    return ConversationHandler.END
 
 
 # show => Mostra uma pessoa que tem interesses em comum (vai com base no ranking).
@@ -157,9 +202,9 @@ def friends(update, context):
 # mensagem ou comando desconhecido
 
 
-def unknown(update, context):
-    response_message = "Não entendi! Por favor, use um comando (eles começam com '/')."
-    update.message.reply_text(response_message)
+# def unknown(update, context):
+#     response_message = "Não entendi! Por favor, use um comando (eles começam com '/')."
+#     update.message.reply_text(response_message)
 
 
 def main():
@@ -169,12 +214,10 @@ def main():
         entry_points=[CommandHandler('prefs', prefs)],
 
         states={
-            MORE: [],
-
-            FINISH: [],
+            CHOOSING: [CallbackQueryHandler(mark_category, pattern='^[\\d]+$'), CallbackQueryHandler(submit_selection, pattern='^finish$')],
         },
 
-        fallbacks=[MessageHandler(Filters.text, end_selection)],
+        fallbacks=[MessageHandler(Filters.text, submit_selection)],
 
         map_to_parent={
             ConversationHandler.END: CHOOSE_ACTION

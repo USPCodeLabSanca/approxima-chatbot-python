@@ -5,21 +5,27 @@ from dotenv import load_dotenv
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Updater, Filters,  CommandHandler, MessageHandler, ConversationHandler, CallbackQueryHandler
 import logging
+import json
+from pathlib import Path
+import copy
+import random
 
 load_dotenv()
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
-categories = ['Filmes', 'Séries', 'Shows', 'Jogos', 'Livros e Literatura',
-              'Beleza e Fitness', 'Idiomas', 'Ciência e Ensino (tópicos acadêmicos)',
-              'Hardware', 'Software', 'Esportes', 'Dança', 'Música', 'Pintura e Desenho',
-              'Culinária', 'Mão na massa (consertos, costura, tricô, etc.)', 'Casa e Jardim',
-              'Pets', 'Compras', 'Trabalho voluntário', 'Hobbies e Lazer', 'Política',
-              'Finanças', 'Viagens e Turismo', 'Intercâmbio', 'Rolês Universitários',
-              'Automóveis e Veículos', 'Esotérico e Holístico', 'Espiritualidade',
-              'Times do coração', 'Causas (ambientais, feminismo, vegan, etc.)', 'Moda',
-              'Empreenderismo e Negócios', 'Imobiliário', 'Artesanato', 'Fotografia',
-              'História', 'Mitologia', 'Pessoas e Sociedade', 'Anime e Mangá']
+categories = ['Filmes', 'Séries', 'Shows', 'Jogos eletrônicos', 'Jogos de tabuleiro',
+              'Jogos de cartas', 'Livros e Literatura', 'Beleza e Fitness', 'Idiomas',
+              'Ciência e Ensino (tópicos acadêmicos)', 'Hardware', 'Software', 'Esportes',
+              'Dança', 'Música', 'Teatro', 'Pintura e Desenho', 'Culinária',
+              'Mão na massa (consertos, costura, tricô, etc.)', 'Casa e Jardim', 'Pets',
+              'Compras', 'Trabalho voluntário', 'Política', 'Finanças', 'Viagens e Turismo',
+              'Intercâmbio', 'Rolês universitários', 'Automóveis e Veículos',
+              'Esotérico e Holístico', 'Espiritualidade', 'Imobiliário', 'Artesanato',
+              'Causas (ambientais, feminismo, vegan, etc.)', 'Moda',
+              'Empreenderismo e Negócios', 'Fotografia', 'História', 'Mitologia',
+              'Pessoas e Sociedade', 'Anime e Mangá', 'Ficção científica',
+              'Fantasia (RPG, senhor dos anéis, etc.)', 'Ciclismo', 'Quadrinhos', 'Saúde']
 
 # Give each category an ID
 categories = enumerate(categories)
@@ -45,15 +51,33 @@ norm_categories = normalizeCategories(categories, 1)
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 
-logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
-# Define o nosso BD de teste
-BD = {}
 
 # States
-REGISTER_NAME, REGISTER_BIO, CHOOSE_ACTION = range(3)
+REGISTER_NAME, REGISTER_BIO, CHOOSE_ACTION, ACTING = range(4)
 # States for interests conversation
-CHOOSING = 3
+CHOOSING = 4
+
+
+def read_test_db():
+    file_path = Path("src/data.json")
+    # Tries to load DB, if any
+    with open(file_path, 'r') as file:
+        data = json.load(file)
+    logger.info(f'Test Database opened! Original data: {data}')
+    return copy.deepcopy(data)
+
+
+def save_test_db(data):
+    file_path = Path("src/data.json")
+    with open(file_path, 'w') as file:
+        json.dump(data, file)
+    logger.info(f'Test Database saved! New data: {DB}')
+
+
+# Define o nosso DB de teste (será chave-valor)
+DB = read_test_db()
 
 
 def help_command(update, context):
@@ -76,11 +100,26 @@ def start_command(update, context):
     (dá pra ver pelo ID do Tele), pede para ela fornecer:
     um nome, uma pequena descrição pessoal e, por último para escolher seus interesses iniciais.
     '''
-    # Checa se o usuário já está no BD
-    if update.effective_user.id in BD:
+
+    # Checa se o usuário já está no DB
+    if str(update.effective_user.id) in DB:
         update.message.reply_text(
             "Bora começar a usar o aplicativo!\nMe diz: o que você quer fazer agora? :)\n")
+
+        # "Copies" user data of DB in context.user_data
+        myself = str(update.effective_user.id)
+        context.user_data['name'] = DB[myself]['name']
+        context.user_data['bio'] = DB[myself]['bio']
+        context.user_data['interests'] = DB[myself]['interests']
+        context.user_data['chat_id'] = DB[myself]['chat_id']
+
+        if DB[myself].get('rejects'):
+            context.user_data['rejects'] = DB[myself]['rejects']
+        else:
+            context.user_data['rejects'] = []
+
         help_command(update, context)
+        return CHOOSE_ACTION
 
     # Caso contrario, o usuario devera se registrar
     update.message.reply_text(
@@ -93,6 +132,7 @@ def register_name(update, context):
     response += "Legal! Agora, me conte um pouco mais sobre seus gostos... Usaremos essa descrição para te apresentar para os outros usuários do Approxima."
 
     update.message.reply_text(response)
+    context.user_data['chat_id'] = update.effective_chat.id
     context.user_data['name'] = update.message.text
     return REGISTER_BIO
 
@@ -105,8 +145,15 @@ def register_bio(update, context):
     # Comeca elx com 0 categorias selecionadas
     context.user_data['interests'] = []
 
-    # Joga as informacoes no BD
-    BD[update.effective_user.id] = context.user_data
+    # Joga as informacoes no DB
+    DB[str(update.effective_user.id)] = copy.deepcopy(context.user_data)
+    save_test_db(DB)
+
+    logger.info(
+        f"User {update.effective_user.name} has been registered in the database.")
+    logger.info(
+        f'{update.effective_user.name} (id: {update.effective_user.id}) data: {context.user_data}')
+
     return CHOOSE_ACTION
 
 
@@ -165,8 +212,10 @@ def change_category_state(update, context):
 def submit_selection(update, context):
     update.callback_query.answer()  # await for answer
 
-    # Guarda as informacoes no BD
-    # codigo aqui... (atualmente funfa por conta da lista ser passada por referencia nas atribuições)
+    # Guarda as informacoes no DB
+    DB[str(update.effective_user.id)]['interests'] = copy.deepcopy(
+        context.user_data['interests'])
+    save_test_db(DB)
 
     update.effective_message.reply_text('Seus interesses foram atualizados!')
     return ConversationHandler.END
@@ -184,11 +233,66 @@ def show_person_command(update, context):
 def get_random_person_command(update, context):
     '''
     random => Mostra uma pessoa aleatória. Embaixo, um botão para enviar a solicitação
-    de conexão deve existir.
+    de conexão deve existir, bem como um botão de "agora não".
     '''
+    users = list(DB)
 
-    # DICA: importar "random" e usar random.choice(lista_aqui)
-    update.message.reply_text('Random!!!')
+    if context.user_data.get('rejects'):
+        if len(users) == len(context.user_data['rejects']) + 1:
+            # Já rejeitei todos da lista de usuários
+            update.message.reply_text(
+                'Você já rejeitou todos os usuários possíveis... manx, que feito!')
+            return CHOOSE_ACTION
+
+    target = random.choice(users)
+    # while the target is me or was rejected by me, keep going on
+    while target == str(update.effective_user.id) or target in context.user_data['rejects']:
+        target = random.choice(users)
+    # Avisa no contexto que essa pessoa foi a ultima a ser exibida para o usuario (ajuda nas callback queries)
+    context.user_data['lastOffer'] = target
+
+    target_bio = DB[target]['bio']
+
+    keyboard = [[
+        InlineKeyboardButton('Conectar', callback_data='connect'),
+        InlineKeyboardButton('Agora não', callback_data='dismiss')
+    ]]
+
+    update.message.reply_text(
+        f'\"{target_bio}\"', reply_markup=InlineKeyboardMarkup(keyboard))
+
+    return ACTING
+
+
+def handle_invite_answer(update, context):
+    target_id = context.user_data['lastOffer']
+    del context.user_data['lastOffer']
+
+    update.callback_query.answer()
+    answer = update.callback_query.data
+
+    myself = str(update.effective_user.id)
+
+    if answer == 'dismiss':
+        context.user_data['rejects'].append(target_id)
+
+        DB[myself]['rejects'] = context.user_data['rejects']
+        save_test_db(DB)
+
+        context.bot.sendMessage(chat_id=DB[myself]['chat_id'],
+                                text='Sugestão rejeitada.')
+
+        return CHOOSE_ACTION
+
+    # For now on, we know that the answer is "connect"!
+
+    target_chat = DB[target_id]['chat_id']
+    context.bot.sendMessage(chat_id=target_chat,
+                            text='Você recebeu uma nova solicitação de conexão!')
+
+    context.bot.sendMessage(chat_id=DB[myself]['chat_id'],
+                            text='Solicitação enviada.')
+
     return CHOOSE_ACTION
 
 
@@ -217,7 +321,6 @@ def friends_command(update, context):
 #     '''
 #     response_message = "Não entendi! Por favor, use um comando (eles começam com '/')."
 #     update.message.reply_text(response_message)
-
 
 def main():
     updater = Updater(token=TELEGRAM_TOKEN, use_context=True)
@@ -255,9 +358,15 @@ def main():
             CHOOSE_ACTION: [
                 prefs_handler,
                 CommandHandler('show', show_person_command),
+                CommandHandler('random', get_random_person_command),
                 CommandHandler('pending', pending_command),
                 CommandHandler('friends', friends_command),
                 CommandHandler('help', help_command),
+            ],
+
+            ACTING: [
+                CallbackQueryHandler(
+                    handle_invite_answer, pattern='^(connect|dismiss)$'),
             ],
         },
 

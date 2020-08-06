@@ -95,14 +95,15 @@ REGISTER_NAME, REGISTER_BIO, CHOOSE_ACTION, ACTING = range(4)
 CHOOSING = 4
 
 
-def help_command(update, context):  # ok
+def help_command(update, context):
     '''
     Mostra os comandos disponiveis
     '''
     text = "/prefs - Retorna uma lista com todas as categorias de interesse. A partir dela que você poderá adicionar ou remover interesses.\n"
     text += "/show - Mostra uma pessoa que tem interesses em comum.\n"
     text += "/random - Mostra uma pessoa aleatória.\n"
-    text += "/pending - Mostra todas as solicitações de conexão que você possui e ainda não respondeu.\n"
+    text += "/clear - Permite que as pessoas que você respondeu com \"Agora não\" apareçam de novo nos dois comando acima.\n"
+    text += "/pending - Mostra uma solicitação de conexão que você possui e ainda não respondeu.\n"
     text += "/friends - Mostra o contato de todas as pessoas com que você já se conectou.\n"
     text += "/help - Mostra novamente essa lista. Alternativamente, você pode digitar \"/\" e a lista de comandos também aparecerá!"
     update.message.reply_text(text)
@@ -163,10 +164,10 @@ def start_command(update, context):
 
     else:  # Novo usuario: deve se registrar
         # Crio os campos necessarios para o user context
+        context.user_data['chat_id'] = None  # number
         context.user_data['name'] = ''  # string
         context.user_data['bio'] = ''    # string
         context.user_data['interests'] = []
-        context.user_data['chat_id'] = None  # number
         context.user_data['rejects'] = []
         context.user_data['invited'] = []
         context.user_data['pending'] = []
@@ -178,7 +179,7 @@ def start_command(update, context):
         return REGISTER_NAME
 
 
-def register_name(update, context):  # ok
+def register_name(update, context):
     response = f"Seu nome é:\n\"{update.message.text}\".\n\n"
     response += "Legal! Agora, me conte um pouco mais sobre seus gostos... faça uma pequena descrição de si mesmo.\n"
     response += "Usaremos essa descrição para te apresentar para os outros usuários do Approxima!"
@@ -191,15 +192,15 @@ def register_name(update, context):  # ok
     return REGISTER_BIO
 
 
-def register_bio(update, context):  # ok
+def register_bio(update, context):
 
     # facilita na hora de referenciar esse usuario
     myself = str(update.effective_user.id)
 
     response = f"Sua descrição é:\n"
-    response += "\"{update.message.text}\".\n\n"
-    response += "Boa! Agora só falta você adicionar alguns interesses para começar a usar o app!\n"
-    response += "Clique aqui >>>    /prefs"
+    response += f"\"{update.message.text}\".\n\n"
+    response += "Boa! Agora só falta você adicionar alguns interesses para começar a usar o Approxima!\n"
+    response += "Clique (ou toque) aqui --> /prefs"
 
     context.user_data['bio'] = update.message.text
 
@@ -302,7 +303,7 @@ def show_person_command(update, context):
     if len(users) == num_acted_users + 1:  # + 1 because of myself
         # Já me decidi sobre todos da lista de usuários
         update.message.reply_text(
-            'Você já rejeitou/convidou todos os usuários possíveis... manx, que feito!')
+            'Você já rejeitou ou convidou todos os usuários possíveis... manx, que feito!')
         return CHOOSE_ACTION
 
     # Pega a lista dos mais parecidos com elx
@@ -351,7 +352,7 @@ def get_random_person_command(update, context):
     if len(users) == num_acted_users + 1:  # + 1 because of myself
         # Já me decidi sobre todos da lista de usuários
         update.message.reply_text(
-            'Você já rejeitou/convidou todos os usuários possíveis... manx, que feito!')
+            'Você já rejeitou ou convidou todos os usuários possíveis... manx, que feito!')
         return CHOOSE_ACTION
 
     target = random.choice(users)
@@ -427,7 +428,7 @@ def handle_invite_answer(update, context):
     return CHOOSE_ACTION
 
 
-def handle_incorrect_invite_answer(update, context):
+def handle_incorrect_answer(update, context):
 
     # facilita na hora de referenciar esse usuario
     myself = str(update.effective_user.id)
@@ -439,7 +440,26 @@ def handle_incorrect_invite_answer(update, context):
 
 
 def clear_rejected_command(update, context):
-    # Deleta os dados sobre pessoas que o usuario já rejeitou
+    '''
+    Deleta o array de pessoas que o usuario já rejeitou,
+    permitindo que elas apareçam novamente nas buscas
+    '''
+
+    # facilita na hora de referenciar esse usuario
+    myself = str(update.effective_user.id)
+
+    if len(context.user_data['rejects']) == 0:
+        update.message.reply_text(
+            'Você não \"rejeitou\" ninguém por enquanto.')
+        return CHOOSE_ACTION
+
+    context.user_data['rejects'] = []
+    DB[myself]['rejects'] = []
+    save_db(DB)
+
+    update.message.reply_text(
+        'Tudo certo! Sua lista de \"rejeitados\" foi limpa!')
+
     return CHOOSE_ACTION
 
 
@@ -449,7 +469,97 @@ def pending_command(update, context):
     para as quais ela ainda não deu uma resposta. Mostra, para cada solicitação,
     a descrição da pessoa e dois botões: conectar ou descartar).
     '''
-    update.message.reply_text('Mostrei os que faltam responder')
+
+    # facilita na hora de referenciar esse usuario
+    myself = str(update.effective_user.id)
+
+    if len(context.user_data['pending']) == 0:
+        update.message.reply_text(
+            'Você não possui novas solicitações de conexão.')
+        return CHOOSE_ACTION
+
+    # Pego o primeiro elemento na "fila"
+    target = context.user_data['pending'].pop(0)
+    target_bio = DB[target]['bio']
+    target_name = DB[target]['name']
+
+    # Avisa no contexto que essa pessoa foi a ultima a ser exibida para o usuario (ajuda nas callback queries)
+    context.user_data['lastShownId'] = target
+
+    # Salvo no BD o novo array de 'pending'
+    DB[myself]['pending'] = context.user_data['pending'].copy()
+    save_db(DB)
+
+    # MENSAGEM DO BOT
+
+    keyboard = [[
+        InlineKeyboardButton('Aceitar', callback_data='accept'),
+        InlineKeyboardButton('Rejeitar', callback_data='reject')
+    ]]
+
+    text = "A seguinte pessoa quer se conectar a você:\n\n"
+    text += f'{target_name}\n'
+    text += f'\"{target_bio}\"'
+
+    update.message.reply_text(
+        text, reply_markup=InlineKeyboardMarkup(keyboard))
+
+    return ACTING
+
+
+def handle_pending_answer(update, context):
+    target_id = context.user_data['lastShownId']
+    del context.user_data['lastShownId']
+
+    # facilita na hora de referenciar esse usuario
+    myself = str(update.effective_user.id)
+
+    update.callback_query.answer()  # awaits for answer
+    answer = update.callback_query.data
+
+    if answer == 'reject':
+        context.user_data['rejects'].append(target_id)
+
+        # Saves in DB
+        DB[myself]['rejects'] = context.user_data['rejects'].copy()
+        save_db(DB)
+
+        context.bot.sendMessage(chat_id=DB[myself]['chat_id'],
+                                text='Pedido de conexão rejeitado.')
+
+        return CHOOSE_ACTION
+
+    # For now on, we know that the answer is "accept"!
+
+    # Register the new connection
+    context.user_data['connections'].append(target_id)
+
+    # Update my info on BD
+    DB[myself]['connections'] = context.user_data['connections'].copy()
+
+    # Update their info on BD
+    if DB[target_id].get('connections'):    # o array de conexoes existe nelx
+        DB[target_id]['connections'].append(myself)
+    else:
+        DB[target_id]['connections'] = [myself]
+
+    save_db(DB)
+
+    # Send messages confirming the action
+
+    target_chat = DB[target_id]['chat_id']
+
+    text_target = 'Uma pessoa acaba de aceitar seu pedido de conexão! Use o comando /friends para checar.'
+
+    context.bot.sendMessage(chat_id=target_chat,
+                            text=text_target)
+
+    my_text = 'Parabéns! Você acaba de ganhar uma nova conexão! Que tal dar um \"oi\" pra elu? :)\n'
+    my_text += "Use o comando /friends para ver a sua nova conexão!"
+
+    context.bot.sendMessage(chat_id=DB[myself]['chat_id'],
+                            text=my_text)
+
     return CHOOSE_ACTION
 
 
@@ -534,7 +644,9 @@ def main():
             ACTING: [
                 CallbackQueryHandler(
                     handle_invite_answer, pattern='^(connect|dismiss)$'),
-                MessageHandler(Filters.all, handle_incorrect_invite_answer),
+                CallbackQueryHandler(
+                    handle_pending_answer, pattern='^(accept|reject)$'),
+                MessageHandler(Filters.all, handle_incorrect_answer),
             ],
         },
 

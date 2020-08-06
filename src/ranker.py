@@ -5,7 +5,9 @@ def rank(my_id_interests, other_users_id_interests):  # interests are lists in t
     '''
     Essa funcao ja vai receber apenas usuarios elegiveis para serem sugeridos
     '''
-    return "194011045"
+    aux = other_users_id_interests.keys()
+    iterator = iter(aux)
+    return next(iterator)  # first pos
 
 
 def test():

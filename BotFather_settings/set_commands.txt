@@ -1,6 +1,7 @@
 prefs - Retorna uma lista com todas as categorias de interesse. A partir dela que você poderá adicionar ou remover interesses.
 show - Mostra uma pessoa que tem interesses em comum.
 random - Mostra uma pessoa aleatória.
-pending - Mostra todas as solicitações de conexão que você possui e ainda não respondeu.
+clear - Permite que as pessoas que você respondeu com "Agora não" apareçam de novo nos dois comando acima.
+pending - Mostra uma solicitação de conexão que você possui e ainda não respondeu.
 friends - Mostra o contato de todas as pessoas com que você já se conectou.
 help - Mostra os comandos disponíveis.

@@ -3,7 +3,7 @@
 import os
 from dotenv import load_dotenv
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import Updater, Filters,  CommandHandler, MessageHandler, ConversationHandler, CallbackQueryHandler
+from telegram.ext import Updater, Filters, CommandHandler, MessageHandler, ConversationHandler, CallbackQueryHandler
 import logging
 import json
 from pathlib import Path

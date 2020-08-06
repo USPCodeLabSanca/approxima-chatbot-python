@@ -3,14 +3,16 @@
         "chat_id": 752245676,
         "name": "Vitor Santana",
         "bio": "Adoro filmes de a\u00e7\u00e3o, Qu\u00edmica Org\u00e2nica e Quadrinhos!",
-        "interests": [0, 2, 10, 26],
+        "interests": [0, 2, 10, 26, 42],
+        "invited": ["194011045"],
         "rejects": ["752474129"]
     },
     "194011045": {
         "chat_id": 194011045,
         "name": "Carolina Arenas",
         "bio": "n\u00e3o sei me descrever rs",
-        "interests": [0, 1, 2, 6, 13, 14, 15, 36]
+        "interests": [0, 1, 2, 6, 13, 14, 15, 36],
+        "pending": ["752245676"]
     },
     "752474129": {
         "chat_id": 752474129,

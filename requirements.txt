@@ -3,9 +3,12 @@ cffi @ file:///home/conda/feedstock_root/build_artifacts/cffi_1595805769248/work
 click==7.1.2
 cryptography @ file:///home/conda/feedstock_root/build_artifacts/cryptography_1595348770643/work
 decorator==4.4.2
+dnspython==1.16.0
 future==0.18.2
 idna @ file:///home/conda/feedstock_root/build_artifacts/idna_1593328102638/work
+numpy @ file:///home/conda/feedstock_root/build_artifacts/numpy_1595522867729/work
 pycparser @ file:///home/conda/feedstock_root/build_artifacts/pycparser_1593275161868/work
+pymongo==3.11.0
 PySocks==1.7.1
 python-dotenv @ file:///home/conda/feedstock_root/build_artifacts/python-dotenv_1593788306353/work
 python-telegram-bot @ file:///home/conda/feedstock_root/build_artifacts/python-telegram-bot_1594075855617/work

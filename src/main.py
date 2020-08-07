@@ -124,10 +124,15 @@ def start_command(update, context):
     if myself in DB:
         # Pega os dados dele do BD
         context.user_data['chat_id'] = DB[myself]['chat_id']    # number
+        context.user_data['username'] = DB[myself]['username']    # string
         context.user_data['name'] = DB[myself]['name']  # string
         context.user_data['bio'] = DB[myself]['bio']    # string
-        # array
-        context.user_data['interests'] = DB[myself]['interests'].copy()
+
+        # se esse usuario possui um campo de "interesses"...
+        if DB[myself].get('interests'):
+            context.user_data['interests'] = DB[myself]['interests'].copy()
+        else:
+            context.user_data['interests'] = []  # inicializo
 
         # se esse usuario possui um campo de "rejeitados"...
         if DB[myself].get('rejects'):
@@ -164,7 +169,8 @@ def start_command(update, context):
 
     else:  # Novo usuario: deve se registrar
         # Crio os campos necessarios para o user context
-        context.user_data['chat_id'] = None  # number
+        context.user_data['chat_id'] = update.effective_chat.id
+        context.user_data['username'] = update.effective_user.username
         context.user_data['name'] = ''  # string
         context.user_data['bio'] = ''    # string
         context.user_data['interests'] = []
@@ -184,7 +190,6 @@ def register_name(update, context):
     response += "Legal! Agora, me conte um pouco mais sobre seus gostos... faça uma pequena descrição de si mesmo.\n"
     response += "Usaremos essa descrição para te apresentar para os outros usuários do Approxima!"
 
-    context.user_data['chat_id'] = update.effective_chat.id
     context.user_data['name'] = update.message.text
 
     update.message.reply_text(response)
@@ -210,9 +215,9 @@ def register_bio(update, context):
 
     # Loga que um novo usuario foi registrado
     logger.info(
-        f"User {update.effective_user.name} has been registered in the database.")
+        f"User {update.effective_user.username} has been registered in the database.")
     logger.info(
-        f'{update.effective_user.name} (id: {update.effective_user.id}) data: {context.user_data}')
+        f'{update.effective_user.username} (id: {update.effective_user.id}) data: {context.user_data}')
 
     update.message.reply_text(response)
 
@@ -297,6 +302,14 @@ def show_person_command(update, context):
 
     users = list(DB)    # get all users (IDs) from the DB
 
+    # Retiro da lista de usuarios todos aqueles que estao com solicitacoes para mim
+    for pending_user in context.user_data['pending']:
+        users.remove(pending_user)
+
+    # Retiro da lista de usuarios todos aqueles que ja estao conectados comigo
+    for friend_user in context.user_data['connections']:
+        users.remove(friend_user)
+
     num_acted_users = len(
         context.user_data['rejects']) + len(context.user_data['invited'])
 
@@ -313,7 +326,18 @@ def show_person_command(update, context):
             users_interests[user] = DB[user].get('interests').copy()
 
     target = ranker.rank(
-        {myself: DB[myself].get('interests').copy()}, users_interests)
+        context.user_data['interests'].copy(), users_interests)
+
+    if target is None:
+        # Nao ha ninguem com as preferencias do usuario ainda
+        response = "Parece que não há ninguém com os mesmos gostos que você no sistema ainda...\n"
+        response += "Que tal tentar o comando /random?"
+
+        update.message.reply_text(response)
+
+        return CHOOSE_ACTION
+
+    # Daqui para frente, sabemos que uma pessoa similar existe
 
     target_bio = DB[target].get('bio')
 
@@ -345,6 +369,14 @@ def get_random_person_command(update, context):
     myself = str(update.effective_user.id)
 
     users = list(DB)    # get all users (IDs) from the DB
+
+    # Retiro da lista de usuarios todos aqueles que estao com solicitacoes para mim
+    for pending_user in context.user_data['pending']:
+        users.remove(pending_user)
+
+    # Retiro da lista de usuarios todos aqueles que ja estao conectados comigo
+    for friend_user in context.user_data['connections']:
+        users.remove(friend_user)
 
     num_acted_users = len(
         context.user_data['rejects']) + len(context.user_data['invited'])
@@ -397,7 +429,7 @@ def handle_invite_answer(update, context):
         DB[myself]['rejects'] = context.user_data['rejects'].copy()
         save_db(DB)
 
-        context.bot.sendMessage(chat_id=DB[myself]['chat_id'],
+        context.bot.sendMessage(chat_id=context.user_data['chat_id'],
                                 text='Sugestão rejeitada.')
 
         return CHOOSE_ACTION
@@ -422,18 +454,14 @@ def handle_invite_answer(update, context):
     context.bot.sendMessage(chat_id=target_chat,
                             text='Você recebeu uma nova solicitação de conexão!')
 
-    context.bot.sendMessage(chat_id=DB[myself]['chat_id'],
+    context.bot.sendMessage(chat_id=context.user_data['chat_id'],
                             text='Solicitação enviada.')
 
     return CHOOSE_ACTION
 
 
 def handle_incorrect_answer(update, context):
-
-    # facilita na hora de referenciar esse usuario
-    myself = str(update.effective_user.id)
-
-    context.bot.sendMessage(chat_id=DB[myself]['chat_id'],
+    context.bot.sendMessage(chat_id=context.user_data['chat_id'],
                             text='Você deve decidir a sua ação acerca do usuário acima antes de prosseguir.')
 
     return ACTING
@@ -480,6 +508,7 @@ def pending_command(update, context):
 
     # Pego o primeiro elemento na "fila"
     target = context.user_data['pending'].pop(0)
+
     target_bio = DB[target]['bio']
     target_name = DB[target]['name']
 
@@ -524,7 +553,7 @@ def handle_pending_answer(update, context):
         DB[myself]['rejects'] = context.user_data['rejects'].copy()
         save_db(DB)
 
-        context.bot.sendMessage(chat_id=DB[myself]['chat_id'],
+        context.bot.sendMessage(chat_id=context.user_data['chat_id'],
                                 text='Pedido de conexão rejeitado.')
 
         return CHOOSE_ACTION
@@ -557,7 +586,7 @@ def handle_pending_answer(update, context):
     my_text = 'Parabéns! Você acaba de ganhar uma nova conexão! Que tal dar um \"oi\" pra elu? :)\n'
     my_text += "Use o comando /friends para ver a sua nova conexão!"
 
-    context.bot.sendMessage(chat_id=DB[myself]['chat_id'],
+    context.bot.sendMessage(chat_id=context.user_data['chat_id'],
                             text=my_text)
 
     return CHOOSE_ACTION
@@ -568,7 +597,37 @@ def friends_command(update, context):
     friends => Mostra o contato (@ do Tele) de todas as pessoas com que o usuário
     já se conectou.
     '''
-    update.message.reply_text('Mostrei suas conexoes')
+
+    # facilita na hora de referenciar esse usuario
+    myself = str(update.effective_user.id)
+
+    if len(context.user_data['connections']) == 0:
+        # Este usuario ainda nao tem conexoes
+        response = "Você ainda não possui nenhuma conexão!\n"
+        response += "Que tal usar o comando /show para conhecer alguém novo?"
+
+        update.message.reply_text(response)
+
+        return CHOOSE_ACTION
+
+    # Se chegou ate aqui é porque ele tem conexoes
+
+    response = "Suas conexões atuais são:\n\n"
+
+    for user in context.user_data['connections']:
+        user_info = DB[user]
+
+        user_info_txt = "_" * 33
+        user_info_txt += "\n"
+        user_info_txt += f"\n{user_info['name']}\n"
+        user_info_txt += f"\n\"{user_info['bio']}\"\n"
+        user_info_txt += f"\nPara conversar, clique aqui --> {user_info['username']}\n"
+        user_info_txt += "\n"
+
+        response += user_info_txt
+
+    update.message.reply_text(response)
+
     return CHOOSE_ACTION
 
 

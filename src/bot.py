@@ -36,7 +36,7 @@ categories = ['Filmes', 'Séries', 'Shows', 'Jogos eletrônicos', 'Jogos de tabu
               'Compras', 'Trabalho voluntário', 'Política', 'Finanças', 'Viagens e Turismo',
               'Intercâmbio', 'Rolês universitários', 'Automóveis e Veículos',
               'Esotérico e Holístico', 'Espiritualidade', 'Imobiliário', 'Artesanato',
-              'Causas (ambientais, feminismo, vegan, etc.)', 'Moda',
+              'Causas (ambientais, feminismo, vegan...)', 'Moda',
               'Empreenderismo e Negócios', 'Fotografia', 'História', 'Mitologia',
               'Pessoas e Sociedade', 'Anime e Mangá', 'Ficção científica',
               'Fantasia (RPG, senhor dos anéis, etc.)', 'Ciclismo', 'Quadrinhos', 'Saúde']
@@ -144,7 +144,9 @@ def start_command(update, context):
 def register_name(update, context):
     response = f"Seu nome é:\n\"{update.message.text}\".\n\n"
     response += "Legal! Agora, me conte um pouco mais sobre seus gostos... faça uma pequena descrição de si mesmo.\n"
-    response += "Usaremos essa descrição para te apresentar para os outros usuários do Approxima!"
+    response += "Essa descrição será utilizada para apresentar você para os outros usuários do Approxima (não mostrarei o seu nome). "
+    response += "Pense que este é o espaço para ser mais específico sobre os seus gostos (afinal, mapear todos os gostos possíveis é impossível) e, portanto, chamar a atenção das pessoas que tem gostos parecidos.\n"
+    response += "Pode escrever o quanto quiser! Mas, para uma melhor experiência de ambas as partes, recomendo não escrever mais que 200 palavras (aproximadamente 1/4 de página com letra tamanho 12)."
 
     context.user_data['name'] = update.message.text
 

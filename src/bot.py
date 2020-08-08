@@ -184,6 +184,11 @@ def prefs_command(update, context):
     prefs => Retorna lista de interesses (caixa de seleção). A pessoa pode marcar
     ou desmarcar o que ela quiser.
     '''
+
+    response = "Escolha suas categorias de interesse.\n"
+    response += "Utilizaremos elas para te recomendar pessoas que tenham gostos parecidos com os seus.\n"
+    response += "O que você marcar aqui NÃO SERÁ VISÍVEL para nenhum outro usuário além de você mesmo!\n"
+
     my_cats = context.user_data['interests']
 
     keyboard = [
@@ -197,7 +202,7 @@ def prefs_command(update, context):
     keyboard.append([InlineKeyboardButton("ENVIAR", callback_data="finish")])
 
     update.message.reply_text(
-        'Escolha suas categorias de interesse:', reply_markup=InlineKeyboardMarkup(keyboard))
+        response, reply_markup=InlineKeyboardMarkup(keyboard))
 
     return CHOOSING
 
@@ -291,8 +296,10 @@ def show_person_command(update, context):
 
     if target is None:
         # Nao ha ninguem com as preferencias do usuario ainda
-        response = "Parece que não há ninguém com os mesmos gostos que você no sistema ainda...\n"
-        response += "Que tal tentar o comando /random?"
+        response = "Parece que não há ninguém com os mesmos gostos que você no sistema ainda...\n\n"
+        response += "Você pode tentar:\n"
+        response += "- Marcar mais categorias de interesse\n"
+        response += "- Que tal tentar o comando /random?"
 
         update.message.reply_text(response)
 

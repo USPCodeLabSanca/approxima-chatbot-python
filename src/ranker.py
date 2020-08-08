@@ -30,14 +30,14 @@ def rank(my_interests, other_users_id_interests, log=False):  # interests are li
         # O maior score que o usuario conseguiu foi 0...
         return None
 
-    most_similar_user = str(ranking[0][0])
+    most_similar_user = ranking[0][0]
 
     if log:
         print('\nRanking:\n', ranking)
         print(
             f'\nMost similar: (userId: {most_similar_user}, interests: {other_users_id_interests[most_similar_user]})')
 
-    return most_similar_user
+    return int(most_similar_user)
 
 
 def test():

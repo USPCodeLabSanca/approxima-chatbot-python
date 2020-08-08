@@ -1,7 +1,6 @@
 # This Python file uses the following encoding: utf-8
 
 import os
-from dotenv import load_dotenv
 import logging
 import random
 import ranker
@@ -12,7 +11,9 @@ from telegram.ext import Updater, Filters, CommandHandler, MessageHandler, Conve
 
 # ================================== ENV =======================================
 
-load_dotenv()
+if not os.getenv("IS_PRODUCTION"):
+    from dotenv import load_dotenv
+    load_dotenv()
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CONNECTION_STRING = os.getenv("CONNECTION_STRING")
@@ -125,7 +126,7 @@ def start_command(update, context):
     else:  # Novo usuario: deve se registrar
         # Crio os campos necessarios para o user context
         context.user_data['chat_id'] = update.effective_chat.id
-        context.user_data['username'] = update.effective_user.username
+        context.user_data['username'] = update.effective_user.name
         context.user_data['name'] = ''  # string
         context.user_data['bio'] = ''    # string
         context.user_data['interests'] = []
@@ -165,7 +166,7 @@ def register_bio(update, context):
     context.user_data['bio'] = update.message.text
 
     # Joga as informacoes no BD
-    db.update_by_id(myself, context.user_data)
+    db.insert(myself, context.user_data)
 
     # Loga que um novo usuario foi registrado
     logger.info(
@@ -253,6 +254,13 @@ def show_person_command(update, context):
     # facilita na hora de referenciar esse usuario
     myself = update.effective_user.id
 
+    my_data = db.get_by_id(myself)
+
+    context.user_data['pending'] = my_data['pending']
+    context.user_data['connections'] = my_data['connections']
+    context.user_data['rejects'] = my_data['rejects']
+    context.user_data['invited'] = my_data['invited']
+
     users = db.list_ids()    # get all users (IDs) from the DB
 
     # Retiro da lista de usuarios todos aqueles que estao com solicitacoes para mim
@@ -291,7 +299,6 @@ def show_person_command(update, context):
         return CHOOSE_ACTION
 
     # Daqui para frente, sabemos que uma pessoa similar existe
-
     target_bio = db.get_by_id(target).get('bio')
 
     # Avisa no contexto que essa pessoa foi a ultima a ser exibida para o usuario (ajuda nas callback queries)
@@ -320,6 +327,13 @@ def get_random_person_command(update, context):
 
     # facilita na hora de referenciar esse usuario
     myself = update.effective_user.id
+
+    my_data = db.get_by_id(myself)
+
+    context.user_data['pending'] = my_data['pending']
+    context.user_data['connections'] = my_data['connections']
+    context.user_data['rejects'] = my_data['rejects']
+    context.user_data['invited'] = my_data['invited']
 
     users = db.list_ids()    # get all users (IDs) from the DB
 
@@ -396,10 +410,9 @@ def handle_invite_answer(update, context):
     # Now, let's update info from the target user
     target_data = db.get_by_id(target_id)
 
-    if target_data.get('pending'):
-        target_data['pending'].append(myself)
-    else:
-        target_data['pending'] = [myself]
+    target_data['pending'].append(myself)
+
+    db.update_by_id(target_id, {'pending': target_data['pending']})
 
     # Send messages confirming the action
     target_chat = target_data['chat_id']
@@ -451,6 +464,10 @@ def pending_command(update, context):
 
     # facilita na hora de referenciar esse usuario
     myself = update.effective_user.id
+
+    my_data = db.get_by_id(myself)
+
+    context.user_data['pending'] = my_data['pending']
 
     if len(context.user_data['pending']) == 0:
         update.message.reply_text(
@@ -547,6 +564,13 @@ def friends_command(update, context):
     friends => Mostra o contato (@ do Tele) de todas as pessoas com que o usuário
     já se conectou.
     '''
+
+    # facilita na hora de referenciar esse usuario
+    myself = update.effective_user.id
+
+    my_data = db.get_by_id(myself)
+
+    context.user_data['connections'] = my_data['connections']
 
     if len(context.user_data['connections']) == 0:
         # Este usuario ainda nao tem conexoes

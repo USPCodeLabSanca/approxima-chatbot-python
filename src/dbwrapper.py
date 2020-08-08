@@ -31,6 +31,25 @@ class Database:
             print("An exception occurred in the database while updating user by id:\n")
             print(sys.exc_info()[0])
 
+    def insert(self, telegramId, data):
+        try:
+            new_document = {
+                "_id": telegramId,
+                "chat_id": data['chat_id'],
+                "username": data['username'],
+                "name": data['name'],
+                "bio": data['bio'],
+                "interests": data['interests'],
+                "rejects": data['rejects'],
+                "invited": data['invited'],
+                "pending": data['pending'],
+                "connections": data['connections']
+            }
+            self.users.insert_one(new_document)
+        except:
+            print("An exception occurred in the database while updating user by id:\n")
+            print(sys.exc_info()[0])
+
 
 def test():
     load_dotenv()

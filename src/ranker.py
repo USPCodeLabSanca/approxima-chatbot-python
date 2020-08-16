@@ -36,7 +36,7 @@ def rank(my_interests, other_users_id_interests, log=False):  # interests are li
         return None
 
     most_similar_user = ranking[0][0]
-    # until this point it is a np.int32
+    # until this point it is a np.uint32
     most_similar_user = int(most_similar_user)
 
     if log:

@@ -274,12 +274,14 @@ def show_person_command(update, context):
 
     not_allowed_users = np.append(
         [myself],
-        context.user_data['pending'],
-        context.user_data['invited'],
-        context.user_data['connections'],
-        context.user_data['rejects'],
-        dtype=np.uint32
+        [
+            context.user_data['pending'],
+            context.user_data['invited'],
+            context.user_data['connections'],
+            context.user_data['rejects']
+        ],
     )
+    not_allowed_users = not_allowed_users.astype(np.uint32)
 
     # Usuarios que podem aparecer para mim, de acordo com os dados do meu perfil
     allowed_users = np.setdiff1d(
@@ -354,12 +356,14 @@ def get_random_person_command(update, context):
 
     not_allowed_users = np.append(
         [myself],
-        context.user_data['pending'],
-        context.user_data['invited'],
-        context.user_data['connections'],
-        context.user_data['rejects'],
-        dtype=np.uint32
+        [
+            context.user_data['pending'],
+            context.user_data['invited'],
+            context.user_data['connections'],
+            context.user_data['rejects']
+        ],
     )
+    not_allowed_users = not_allowed_users.astype(np.uint32)
 
     # Usuarios que podem aparecer para mim, de acordo com os dados do meu perfil
     allowed_users = np.setdiff1d(
@@ -500,6 +504,11 @@ def pending_command(update, context):
 
     # Salvo no BD o novo array de 'pending'
     db.update_by_id(myself, {'pending': context.user_data['pending']})
+
+    # Me retiro da lista de "invited" do outro usuario
+    target_invited = target_data.get['invited']
+    target_invited.remove(myself)
+    db.update_by_id(target, {'invited': target_invited})
 
     # MENSAGEM DO BOT
 

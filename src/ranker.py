@@ -1,3 +1,5 @@
+# This Python file uses the following encoding: utf-8
+
 import numpy as np
 
 
@@ -7,9 +9,12 @@ def rank(my_interests, other_users_id_interests, log=False):  # interests are li
     e como valor os interesses dele (Python list).
     Essa funcao ja vai receber apenas usuarios elegiveis para serem sugeridos.
     '''
+    if len(other_users_id_interests) == 0:
+        return None
+
     my_interests = np.array(my_interests, dtype=np.uint16)
 
-    scores = np.zeros((len(other_users_id_interests), 2), dtype=np.uint64)
+    scores = np.zeros((len(other_users_id_interests), 2), dtype=np.uint32)
 
     for i, user_id in enumerate(other_users_id_interests):
         their_interests = np.array(
@@ -31,13 +36,18 @@ def rank(my_interests, other_users_id_interests, log=False):  # interests are li
         return None
 
     most_similar_user = ranking[0][0]
+    # until this point it is a np.int32
+    most_similar_user = int(most_similar_user)
 
     if log:
         print('\nRanking:\n', ranking)
+        # Most Similar User interests
+        msu_interests = other_users_id_interests[most_similar_user]
         print(
-            f'\nMost similar: (userId: {most_similar_user}, interests: {other_users_id_interests[most_similar_user]})')
+            f"\nMost similar: (userId: {most_similar_user}, interests: {msu_interests})"
+        )
 
-    return int(most_similar_user)
+    return most_similar_user
 
 
 def test():
@@ -46,17 +56,17 @@ def test():
     my_interests = [0, 1, 3]
 
     users_interests = {
-        '1': [0, 5],    # 2nd tier (score 1)
-        '2': [3],   # 2nd tier (score 1)
-        '3': [5],   # 3rd tier (score 0)
-        '4': [3, 4],    # 2nd tier (score 1)
-        '5': [0, 1, 4],  # 1st tier (score 2)
-        '6': [1, 2],    # 2nd tier (score 1)
-        '7': [1, 2, 3, 4],  # 1st tier (score 2)
-        '8': [1, 5],    # 2nd tier (score 1)
+        1111: [0, 5],    # 2nd tier (score 1)
+        2222: [3],   # 2nd tier (score 1)
+        3333: [5],   # 3rd tier (score 0)
+        4444: [3, 4],    # 2nd tier (score 1)
+        5555: [0, 1, 4],  # 1st tier (score 2)
+        6666: [1, 2],    # 2nd tier (score 1)
+        7777: [1, 2, 3, 4],  # 1st tier (score 2)
+        8888: [1, 5],    # 2nd tier (score 1)
     }
 
-    rank(my_interests, users_interests, log=True)
+    print(rank(my_interests, users_interests, log=True))
 
 
 if __name__ == '__main__':

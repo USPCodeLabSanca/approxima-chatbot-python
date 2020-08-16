@@ -4,6 +4,7 @@ import os
 import logging
 import random
 import ranker
+import numpy as np
 from dbwrapper import Database
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Updater, Filters, CommandHandler, MessageHandler, ConversationHandler, CallbackQueryHandler
@@ -144,9 +145,9 @@ def start_command(update, context):
 def register_name(update, context):
     response = f"Seu nome é:\n\"{update.message.text}\".\n\n"
     response += "Legal! Agora, me conte um pouco mais sobre seus gostos... faça uma pequena descrição de si mesmo.\n"
-    response += "Essa descrição será utilizada para apresentar você para os outros usuários do Approxima (não mostrarei o seu nome). "
-    response += "Pense que este é o espaço para ser mais específico sobre os seus gostos (afinal, mapear todos os gostos possíveis é impossível) e, portanto, chamar a atenção das pessoas que tem gostos parecidos.\n"
-    response += "Pode escrever o quanto quiser! Mas, para uma melhor experiência de ambas as partes, recomendo não escrever mais que 200 palavras (aproximadamente 1/4 de página com letra tamanho 12)."
+    response += "Ela será utilizada para apresentar você para os outros usuários do Approxima (não mostrarei o seu nome). "
+    response += "Pense que este é o espaço para ser mais específico sobre os seus gostos.\n"
+    response += "Pode escrever o quanto quiser! Mas, para uma melhor experiência de ambas as partes, recomendo não escrever mais que 200 palavras (aproximadamente 1/4 de página)."
 
     context.user_data['name'] = update.message.text
 
@@ -172,9 +173,9 @@ def register_bio(update, context):
 
     # Loga que um novo usuario foi registrado
     logger.info(
-        f"User {update.effective_user.username} has been registered in the database.")
+        f"User {update.effective_user.name} has been registered in the database.")
     logger.info(
-        f'{update.effective_user.username} (id: {update.effective_user.id}) data: {context.user_data}')
+        f'{update.effective_user.name} (id: {update.effective_user.id}) data: {context.user_data}')
 
     update.message.reply_text(response)
 
@@ -268,30 +269,34 @@ def show_person_command(update, context):
     context.user_data['rejects'] = my_data['rejects']
     context.user_data['invited'] = my_data['invited']
 
-    users = db.list_ids()    # get all users (IDs) from the DB
+    # get all users (IDs) from the DB
+    all_users = np.array(db.list_ids(), dtype=np.uint32)
 
-    # Retiro da lista de usuarios todos aqueles que estao com solicitacoes para mim
-    for pending_user in context.user_data['pending']:
-        users.remove(pending_user)
+    not_allowed_users = np.append(
+        [myself],
+        context.user_data['pending'],
+        context.user_data['invited'],
+        context.user_data['connections'],
+        context.user_data['rejects'],
+        dtype=np.uint32
+    )
 
-    # Retiro da lista de usuarios todos aqueles que ja estao conectados comigo
-    for friend_user in context.user_data['connections']:
-        users.remove(friend_user)
+    # Usuarios que podem aparecer para mim, de acordo com os dados do meu perfil
+    allowed_users = np.setdiff1d(
+        all_users, not_allowed_users, assume_unique=True
+    )
 
-    num_acted_users = len(
-        context.user_data['rejects']) + len(context.user_data['invited'])
-
-    if len(users) == num_acted_users + 1:  # + 1 because of myself
-        # Já me decidi sobre todos da lista de usuários
+    if len(all_users) == len(not_allowed_users) + 1:  # + 1 because of myself
         update.message.reply_text(
             'Você já rejeitou ou convidou todos os usuários possíveis... manx, que feito!')
         return CHOOSE_ACTION
 
-    # Pega a lista dos mais parecidos com elx
+    # Mapeia os usuarios aos seus interesses
     users_interests = {}
-    for user in users:
-        if user != myself and user not in context.user_data['rejects'] and user not in context.user_data['invited']:
-            users_interests[user] = db.get_by_id(user).get('interests')
+    for user in allowed_users:
+        user_data = db.get_by_id(user)
+        if myself not in user_data['rejects']:
+            users_interests[user] = user_data.get('interests')
 
     target = ranker.rank(
         context.user_data['interests'].copy(), users_interests)
@@ -344,29 +349,29 @@ def get_random_person_command(update, context):
     context.user_data['rejects'] = my_data['rejects']
     context.user_data['invited'] = my_data['invited']
 
-    users = db.list_ids()    # get all users (IDs) from the DB
+    # get all users (IDs) from the DB
+    all_users = np.array(db.list_ids(), dtype=np.uint32)
 
-    # Retiro da lista de usuarios todos aqueles que estao com solicitacoes para mim
-    for pending_user in context.user_data['pending']:
-        users.remove(pending_user)
+    not_allowed_users = np.append(
+        [myself],
+        context.user_data['pending'],
+        context.user_data['invited'],
+        context.user_data['connections'],
+        context.user_data['rejects'],
+        dtype=np.uint32
+    )
 
-    # Retiro da lista de usuarios todos aqueles que ja estao conectados comigo
-    for friend_user in context.user_data['connections']:
-        users.remove(friend_user)
+    # Usuarios que podem aparecer para mim, de acordo com os dados do meu perfil
+    allowed_users = np.setdiff1d(
+        all_users, not_allowed_users, assume_unique=True
+    )
 
-    num_acted_users = len(
-        context.user_data['rejects']) + len(context.user_data['invited'])
-
-    if len(users) == num_acted_users + 1:  # + 1 because of myself
-        # Já me decidi sobre todos da lista de usuários
+    if len(all_users) == len(not_allowed_users) + 1:  # + 1 because of myself
         update.message.reply_text(
             'Você já rejeitou ou convidou todos os usuários possíveis... manx, que feito!')
         return CHOOSE_ACTION
 
-    target = random.choice(users)
-    # while the target is me or was already responded by me, keep going on
-    while target == myself or target in context.user_data['rejects'] or target in context.user_data['invited']:
-        target = random.choice(users)
+    target = random.choice(allowed_users)
 
     target_bio = db.get_by_id(target).get('bio')
 

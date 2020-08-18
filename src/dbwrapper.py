@@ -5,10 +5,10 @@ from dotenv import load_dotenv
 
 
 class Database:
-    def __init__(self, connection_string):
+    def __init__(self, connection_string, is_production=False):
         client = pymongo.MongoClient(connection_string)
         self.db = client['approxima']
-        self.users = self.db['users']
+        self.users = self.db['production-users'] if is_production else self.db['users']
 
     def list_ids(self):
         ids = []

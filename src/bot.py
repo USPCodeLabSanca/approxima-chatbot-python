@@ -65,7 +65,8 @@ norm_categories = normalizeCategories(categories, 1)
 
 # ================================== BD ========================================
 
-db = Database(CONNECTION_STRING)
+is_production = False if os.getenv("IS_PRODUCTION") is None else True
+db = Database(CONNECTION_STRING, is_production=is_production)
 
 # ================================== BOT =======================================
 
@@ -281,7 +282,6 @@ def show_person_command(update, context):
             context.user_data['rejects']
         ],
     )
-    not_allowed_users = not_allowed_users.astype(np.uint32)
 
     # Usuarios que podem aparecer para mim, de acordo com os dados do meu perfil
     allowed_users = np.setdiff1d(

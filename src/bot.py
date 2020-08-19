@@ -520,7 +520,7 @@ def pending_command(update, context):
     db.update_by_id(myself, {'pending': context.user_data['pending']})
 
     # Me retiro da lista de "invited" do outro usuario
-    target_invited = target_data.get['invited']
+    target_invited = target_data.get('invited')
     target_invited.remove(myself)
     db.update_by_id(target, {'invited': target_invited})
 

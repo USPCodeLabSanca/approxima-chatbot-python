@@ -86,7 +86,8 @@ def help_command(update, context):
     text += "/clear - Permite que as pessoas que você respondeu com \"Agora não\" apareçam de novo nos dois comando acima.\n"
     text += "/pending - Mostra uma solicitação de conexão que você possui e ainda não respondeu.\n"
     text += "/friends - Mostra o contato de todas as pessoas com que você já se conectou.\n"
-    text += "/help - Mostra novamente essa lista. Alternativamente, você pode digitar \"/\" e a lista de comandos também aparecerá!"
+    text += "/help - Mostra novamente essa lista. Alternativamente, você pode digitar \"/\" e a lista de comandos também aparecerá!\n\n"
+    text += "Caso tenha algum problema ou crítica/sugestão, chama um dos meus desenvolvedores --> @vitorsanc @arenasoy @Angra018 @OliveiraNelson"
     update.message.reply_text(text)
 
     return CHOOSE_ACTION

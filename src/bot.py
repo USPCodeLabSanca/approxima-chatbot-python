@@ -273,14 +273,14 @@ def show_person_command(update, context):
     # get all users (IDs) from the DB
     all_users = np.array(db.list_ids(), dtype=np.uint32)
 
-    not_allowed_users = np.append(
-        [myself],
-        [
+    not_allowed_users = np.hstack(
+        (
+            [myself],
             context.user_data['pending'],
             context.user_data['invited'],
             context.user_data['connections'],
             context.user_data['rejects']
-        ],
+        )
     )
 
     # Usuarios que podem aparecer para mim, de acordo com os dados do meu perfil
@@ -288,17 +288,20 @@ def show_person_command(update, context):
         all_users, not_allowed_users, assume_unique=True
     )
 
-    if len(all_users) == len(not_allowed_users) + 1:  # + 1 because of myself
+    # LEMBRAR QUE, A PARTIR DAQUI, TODOS OS USERS SÃO np.uint32 E NÃO int,
+    # portanto o casting se faz necessario
+
+    if len(all_users) == len(not_allowed_users):
         update.message.reply_text(
-            'Você já rejeitou ou convidou todos os usuários possíveis... manx, que feito!')
+            'Não tenho ninguém novo para te mostrar no momento... que tal tentar amanhã? :)')
         return CHOOSE_ACTION
 
     # Mapeia os usuarios aos seus interesses
     users_interests = {}
     for user in allowed_users:
-        user_data = db.get_by_id(user)
+        user_data = db.get_by_id(int(user))
         if myself not in user_data['rejects']:
-            users_interests[user] = user_data.get('interests')
+            users_interests[int(user)] = user_data.get('interests')
 
     target = ranker.rank(
         context.user_data['interests'].copy(), users_interests)
@@ -308,7 +311,7 @@ def show_person_command(update, context):
         response = "Parece que não há ninguém com os mesmos gostos que você no sistema ainda...\n\n"
         response += "Você pode tentar:\n"
         response += "- Marcar mais categorias de interesse\n"
-        response += "- Que tal tentar o comando /random?"
+        response += "- O comando /random (pessoa aleatória)"
 
         update.message.reply_text(response)
 
@@ -354,29 +357,37 @@ def get_random_person_command(update, context):
     # get all users (IDs) from the DB
     all_users = np.array(db.list_ids(), dtype=np.uint32)
 
-    not_allowed_users = np.append(
-        [myself],
-        [
+    not_allowed_users = np.hstack(
+        (
+            [myself],
             context.user_data['pending'],
             context.user_data['invited'],
             context.user_data['connections'],
             context.user_data['rejects']
-        ],
+        )
     )
-    not_allowed_users = not_allowed_users.astype(np.uint32)
 
     # Usuarios que podem aparecer para mim, de acordo com os dados do meu perfil
     allowed_users = np.setdiff1d(
         all_users, not_allowed_users, assume_unique=True
     )
 
-    if len(all_users) == len(not_allowed_users) + 1:  # + 1 because of myself
+    # Preciso, ainda, tirar aqueles que me tem em sua lista de rejects
+    remove_index = []
+    for i, user in enumerate(allowed_users):
+        if myself in db.get_by_id(int(user)).get('rejects'):
+            remove_index.append(i)
+    allowed_users = np.delete(allowed_users, remove_index)
+
+    # LEMBRAR QUE, A PARTIR DAQUI, TODOS OS USERS SÃO np.uint32 E NÃO int,
+    # portanto o casting se faz necessario
+
+    if len(allowed_users) == 0:
         update.message.reply_text(
-            'Você já rejeitou ou convidou todos os usuários possíveis... manx, que feito!')
+            'Não tenho ninguém novo para te mostrar no momento... que tal tentar amanhã? :)')
         return CHOOSE_ACTION
 
-    target = random.choice(allowed_users)
-
+    target = int(random.choice(allowed_users))
     target_bio = db.get_by_id(target).get('bio')
 
     # Avisa no contexto que essa pessoa foi a ultima a ser exibida para o usuario (ajuda nas callback queries)
@@ -433,9 +444,12 @@ def handle_invite_answer(update, context):
     db.update_by_id(target_id, {'pending': target_data['pending']})
 
     # Send messages confirming the action
-    target_chat = target_data['chat_id']
-    context.bot.sendMessage(chat_id=target_chat,
-                            text='Você recebeu uma nova solicitação de conexão!')
+    try:
+        target_chat = target_data['chat_id']
+        context.bot.sendMessage(chat_id=target_chat,
+                                text='Você recebeu uma nova solicitação de conexão!')
+    except:
+        logger.error('O usuario alvo nao esta "logado" no bot.')
 
     context.bot.sendMessage(chat_id=context.user_data['chat_id'],
                             text='Solicitação enviada.')
@@ -534,7 +548,7 @@ def handle_pending_answer(update, context):
     # facilita na hora de referenciar esse usuario
     myself = update.effective_user.id
 
-    update.callback_query.answer()  # awaits for answerDB
+    update.callback_query.answer()  # awaits for answer
     answer = update.callback_query.data
 
     if answer == 'reject':
@@ -552,6 +566,7 @@ def handle_pending_answer(update, context):
 
     # Register the new connection
     context.user_data['connections'].append(target_id)
+    context.user_data['pending']
 
     # Update my info on BD
     db.update_by_id(myself, {'connections': context.user_data['connections']})

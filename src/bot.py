@@ -506,12 +506,10 @@ def handle_invite_answer(update, context):
     # Send messages confirming the action
     target_msg = "Você recebeu uma nova solicitação de conexão!\n"
     target_msg += "Utilize o comando /pending para vê-la."
-    try:
-        target_chat = target_data['chat_id']
-        context.bot.sendMessage(chat_id=target_chat,
-                                text=target_msg)
-    except:
-        logger.error('O usuario alvo nao esta "logado" no bot.')
+
+    target_chat = target_data['chat_id']
+    context.bot.sendMessage(chat_id=target_chat,
+                            text=target_msg)
 
     context.bot.sendMessage(chat_id=context.user_data['chat_id'],
                             text='Solicitação enviada.')

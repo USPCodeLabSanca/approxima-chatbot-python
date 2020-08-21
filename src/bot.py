@@ -157,8 +157,7 @@ def register_name(update, context):
     response = f"Seu nome é:\n\"{update.message.text}\"\n\n"
     response += "Legal! Agora, me conte um pouco mais sobre seus gostos... faça uma pequena descrição de si mesmo.\n"
     response += "Ela será utilizada para apresentar você para os outros usuários do Approxima (não mostrarei o seu nome).\n\n"
-    response += "Pense que este é o espaço para ser mais específico sobre os seus gostos.\n\n"
-    response += "Pode escrever o quanto quiser! Mas, para uma melhor experiência de ambas as partes, recomendo não escrever mais que 200 palavras (aproximadamente 1/4 de página)."
+    response += "OBS: Você poderá mudar essa descrição depois, mas lembre-se de que somente ela irá aparecer para os outros usuários quando formos te apresentar a eles!"
 
     context.user_data['name'] = update.message.text
 

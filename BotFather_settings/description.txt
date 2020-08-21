@@ -1,4 +1,4 @@
 Essa mensagem irá aparecem antes da pessoa dar o /start, embaixo de "What can this bot do?".
 
 Sou o bot do Approxima e meu objetivo é conectar estudantes universitários por meio de interesses em comum. Estou animado pra ver quem você irá conhecer por minha causa! :)
-Se precisar de uma lista de comandos, digite "/" que eu te mostrarei os disponíveis.
+Se precisar de uma lista de comandos, digite "/" que eu te mostrarei os disponíveis (ou use o comando /help).

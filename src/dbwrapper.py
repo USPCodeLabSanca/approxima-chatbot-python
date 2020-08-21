@@ -16,6 +16,12 @@ class Database:
             ids.append(user['_id'])
         return ids
 
+    def list_chat_ids(self):
+        chat_ids = []
+        for user in self.users.find():
+            chat_ids.append(user['chat_id'])
+        return chat_ids
+
     def get_by_id(self, telegramId):
         try:
             return self.users.find_one({'_id': telegramId})

@@ -4,6 +4,7 @@ import os
 import logging
 import random
 import ranker
+import json
 import numpy as np
 from dbwrapper import Database
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
@@ -18,6 +19,7 @@ if not os.getenv("IS_PRODUCTION"):
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CONNECTION_STRING = os.getenv("CONNECTION_STRING")
+ADMINS = json.loads(os.getenv("ADMINS"))
 
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -71,23 +73,26 @@ db = Database(CONNECTION_STRING, is_production=is_production)
 # ================================== BOT =======================================
 
 # States
-REGISTER_NAME, REGISTER_BIO, CHOOSE_ACTION, ACTING = range(4)
+REGISTER_NAME, REGISTER_BIO, CHOOSE_ACTION, CHOOSE_ANSWER_FOR_BUTTONS, GIVE_NEW_NAME, GIVE_NEW_BIO, SEND_NOTIFICATION = range(
+    7)
 # States for interests conversation
-CHOOSING = 4
+CHOOSE_INTERESTS = 7
 
 
 def help_command(update, context):
     '''
     Mostra os comandos disponiveis
     '''
-    text = "/prefs - Retorna uma lista com todas as categorias de interesse. A partir dela que você poderá adicionar ou remover interesses.\n"
-    text += "/show - Mostra uma pessoa que tem interesses em comum.\n"
-    text += "/random - Mostra uma pessoa aleatória.\n"
-    text += "/clear - Permite que as pessoas que você respondeu com \"Agora não\" apareçam de novo nos dois comando acima.\n"
-    text += "/pending - Mostra uma solicitação de conexão que você possui e ainda não respondeu.\n"
-    text += "/friends - Mostra o contato de todas as pessoas com que você já se conectou.\n"
-    text += "/help - Mostra novamente essa lista. Alternativamente, você pode digitar \"/\" e a lista de comandos também aparecerá!\n\n"
-    text += "Caso tenha algum problema ou crítica/sugestão, chama um dos meus desenvolvedores --> @vitorsanc @arenasoy @Angra018 @OliveiraNelson"
+    text = "/prefs --> Retorna uma lista com todas as categorias de interesse. A partir dela, você poderá adicionar ou remover interesses.\n"
+    text += "/show --> Mostra uma pessoa que tem interesses em comum.\n"
+    text += "/random --> Mostra uma pessoa aleatória.\n"
+    text += "/clear --> Permite que as pessoas que você respondeu com \"Agora não\" apareçam de novo nos dois comando acima.\n"
+    text += "/pending --> Mostra uma solicitação de conexão que você possui e ainda não respondeu.\n"
+    text += "/friends --> Mostra o contato de todas as pessoas com que você já se conectou.\n"
+    text += "/name --> Troca o seu nome.\n"
+    text += "/desc --> Troca a sua descrição.\n"
+    text += "/help --> Mostra novamente essa lista. Alternativamente, você pode digitar \"/\" e a lista de comandos também aparecerá!\n\n"
+    text += "Caso tenha algum problema ou crítica/sugestão, chama um dos meus desenvolvedores (eles me disseram que não mordem) --> @vitorsanc @arenasoy @Angra018 @OliveiraNelson"
     update.message.reply_text(text)
 
     return CHOOSE_ACTION
@@ -118,11 +123,11 @@ def start_command(update, context):
         context.user_data['connections'] = my_data['connections']
 
         # Manda a mensagem de "boas-vindas"
-        update.message.reply_text(
-            "Bora começar a usar o Approxima!\nMe diz: o que você quer fazer agora? :)\n")
+        message = "É muito bom ter você de volta! Bora começar a usar o Approxima :)\n"
+        message += "Me diz: o que você quer fazer agora?\n\n"
+        message += "Use /help para uma lista dos comandos disponíveis.\n"
 
-        # Mostra a lista de comandos para o usuário
-        help_command(update, context)
+        update.message.reply_text(message)
 
         return CHOOSE_ACTION
 
@@ -138,17 +143,20 @@ def start_command(update, context):
         context.user_data['pending'] = []
         context.user_data['connections'] = []
 
-        update.message.reply_text(
-            'Parece que você não está registrado no Approxima ainda...\nPor favor, me forneça o seu nome! (ex: Joao Vitor dos Santos)')
+        message = "Muito prazer! Vamos começar o seu registro no Approxima!\n\n"
+        message += "Primeiro, me forneça o seu nome.\n"
+        message += "Ex: Joao Vitor dos Santos"
+
+        update.message.reply_text(message)
 
         return REGISTER_NAME
 
 
 def register_name(update, context):
-    response = f"Seu nome é:\n\"{update.message.text}\".\n\n"
+    response = f"Seu nome é:\n\"{update.message.text}\"\n\n"
     response += "Legal! Agora, me conte um pouco mais sobre seus gostos... faça uma pequena descrição de si mesmo.\n"
-    response += "Ela será utilizada para apresentar você para os outros usuários do Approxima (não mostrarei o seu nome). "
-    response += "Pense que este é o espaço para ser mais específico sobre os seus gostos.\n"
+    response += "Ela será utilizada para apresentar você para os outros usuários do Approxima (não mostrarei o seu nome).\n\n"
+    response += "Pense que este é o espaço para ser mais específico sobre os seus gostos.\n\n"
     response += "Pode escrever o quanto quiser! Mas, para uma melhor experiência de ambas as partes, recomendo não escrever mais que 200 palavras (aproximadamente 1/4 de página)."
 
     context.user_data['name'] = update.message.text
@@ -166,7 +174,9 @@ def register_bio(update, context):
     response = f"Sua descrição é:\n"
     response += f"\"{update.message.text}\".\n\n"
     response += "Boa! Agora só falta você adicionar alguns interesses para começar a usar o Approxima!\n"
-    response += "Clique (ou toque) aqui --> /prefs"
+    response += "Clique (ou toque) aqui --> /prefs\n\n"
+    response += "Após essa etapa você já pode começar a usar os meus comandos!\n"
+    response += "Caso se sinta perdido em algum momento, lembre-se que existe o comando /help para te ajudar ;)"
 
     context.user_data['bio'] = update.message.text
 
@@ -180,6 +190,55 @@ def register_bio(update, context):
         f'{update.effective_user.name} (id: {update.effective_user.id}) data: {context.user_data}')
 
     update.message.reply_text(response)
+
+    return CHOOSE_ACTION
+
+
+def edit_name_command(update, context):
+    response = f"Seu nome atual é: {context.user_data['name']}\n\n"
+    response += "Agora, manda pra mim o seu novo nome! Envie um ponto (.) caso tenha desistido de mudá-lo."
+    update.message.reply_text(response)
+
+    return GIVE_NEW_NAME
+
+
+def update_name(update, context):
+    if update.message.text == ".":
+        update.message.reply_text("Ok! Não vou alterar seu nome.")
+        return CHOOSE_ACTION
+
+    # facilita na hora de referenciar esse usuario
+    myself = update.effective_user.id
+
+    context.user_data['name'] = update.message.text
+    db.update_by_id(myself, {'name': update.message.text})
+
+    update.message.reply_text("Seu nome foi alterado com sucesso!")
+
+    return CHOOSE_ACTION
+
+
+def edit_bio_command(update, context):
+    response = "Sua descrição atual é:\n\n"
+    response += f"{context.user_data['bio']}\n\n"
+    response += "Agora, manda pra mim a sua nova descrição! Envie um ponto (.) caso tenha desistido de mudá-la."
+    update.message.reply_text(response)
+
+    return GIVE_NEW_BIO
+
+
+def update_bio(update, context):
+    if update.message.text == ".":
+        update.message.reply_text("Ok! Não vou alterar sua descrição.")
+        return CHOOSE_ACTION
+
+    # facilita na hora de referenciar esse usuario
+    myself = update.effective_user.id
+
+    context.user_data['bio'] = update.message.text
+    db.update_by_id(myself, {'bio': update.message.text})
+
+    update.message.reply_text("Sua descrição foi alterada com sucesso!")
 
     return CHOOSE_ACTION
 
@@ -209,7 +268,7 @@ def prefs_command(update, context):
     update.message.reply_text(
         response, reply_markup=InlineKeyboardMarkup(keyboard))
 
-    return CHOOSING
+    return CHOOSE_INTERESTS
 
 
 def change_category_state(update, context):
@@ -238,7 +297,7 @@ def change_category_state(update, context):
     update.callback_query.edit_message_reply_markup(
         reply_markup=InlineKeyboardMarkup(keyboard))
 
-    return CHOOSING
+    return CHOOSE_INTERESTS
 
 
 def submit_selection(update, context):
@@ -336,7 +395,7 @@ def show_person_command(update, context):
     update.message.reply_text(
         text, reply_markup=InlineKeyboardMarkup(keyboard))
 
-    return ACTING
+    return CHOOSE_ANSWER_FOR_BUTTONS
 
 
 def get_random_person_command(update, context):
@@ -406,7 +465,7 @@ def get_random_person_command(update, context):
     update.message.reply_text(
         text, reply_markup=InlineKeyboardMarkup(keyboard))
 
-    return ACTING
+    return CHOOSE_ANSWER_FOR_BUTTONS
 
 
 def handle_invite_answer(update, context):
@@ -445,10 +504,12 @@ def handle_invite_answer(update, context):
     db.update_by_id(target_id, {'pending': target_data['pending']})
 
     # Send messages confirming the action
+    target_msg = "Você recebeu uma nova solicitação de conexão!\n"
+    target_msg += "Utilize o comando /pending para vê-la."
     try:
         target_chat = target_data['chat_id']
         context.bot.sendMessage(chat_id=target_chat,
-                                text='Você recebeu uma nova solicitação de conexão!')
+                                text=target_msg)
     except:
         logger.error('O usuario alvo nao esta "logado" no bot.')
 
@@ -456,13 +517,6 @@ def handle_invite_answer(update, context):
                             text='Solicitação enviada.')
 
     return CHOOSE_ACTION
-
-
-def handle_incorrect_answer(update, context):
-    context.bot.sendMessage(chat_id=context.user_data['chat_id'],
-                            text='Você deve decidir a sua ação acerca do usuário acima antes de prosseguir.')
-
-    return ACTING
 
 
 def clear_rejected_command(update, context):
@@ -511,7 +565,6 @@ def pending_command(update, context):
     target = context.user_data['pending'].pop(0)
 
     target_data = db.get_by_id(target)
-    target_name = target_data.get('name')
     target_bio = target_data.get('bio')
 
     # Avisa no contexto que essa pessoa foi a ultima a ser exibida para o usuario (ajuda nas callback queries)
@@ -533,13 +586,12 @@ def pending_command(update, context):
     ]]
 
     text = "A seguinte pessoa quer se conectar a você:\n\n"
-    text += f'{target_name}\n'
     text += f'\"{target_bio}\"'
 
     update.message.reply_text(
         text, reply_markup=InlineKeyboardMarkup(keyboard))
 
-    return ACTING
+    return CHOOSE_ANSWER_FOR_BUTTONS
 
 
 def handle_pending_answer(update, context):
@@ -641,14 +693,14 @@ def friends_command(update, context):
     return CHOOSE_ACTION
 
 
-# UNKNOWN TREATMENT
+# ============================== ERROR/UNKNOWN =================================
 
-def unknown_message(update, context):
-    '''
-    Mensagem ou comando desconhecido
-    '''
-    response_message = "Não entendi! Por favor, use um comando válido...\nUse /help se estiver com dificuldades."
-    update.message.reply_text(response_message)
+
+def handle_incorrect_choice(update, context):
+    context.bot.sendMessage(chat_id=context.user_data['chat_id'],
+                            text='Você deve decidir a sua ação acerca do usuário acima antes de prosseguir.')
+
+    return CHOOSE_ANSWER_FOR_BUTTONS
 
 
 def prefs_unknown_message(update, context):
@@ -659,7 +711,63 @@ def prefs_unknown_message(update, context):
     update.message.reply_text(response_message)
 
 
-# DRIVER FUNCTION
+def unknown_message(update, context):
+    '''
+    Mensagem ou comando desconhecido
+    '''
+    response_message = "Não entendi! Por favor, use um comando válido...\nUse /help se estiver com dificuldades."
+    update.message.reply_text(response_message)
+
+
+# ================================= ADMIN ======================================
+
+def notify_command(update, context):
+
+    # facilita na hora de referenciar esse usuario
+    myself = update.effective_user.id
+
+    is_admin = False
+    admin_name = ""
+
+    for admin in ADMINS:
+        if myself == admin['telegramId']:
+            is_admin = True
+            admin_name = admin['name']
+            break
+
+    if not is_admin:
+        response = "O que você está tentando fazer? Esse comando é só para admins."
+        update.message.reply_text(response)
+
+        return CHOOSE_ACTION
+
+    response = f"Olá {admin_name}!\n"
+    response += "Me informe a mensagem que deseja mandar para TODOS os usuários do Approxima.\n"
+    response += "PS: Lembre-se de usar esse recurso com responsabilidade :)"
+
+    update.message.reply_text(response)
+
+    return SEND_NOTIFICATION
+
+
+def send_notification(update, context):
+
+    all_chats = db.list_chat_ids()
+
+    for chat in all_chats:
+        try:
+            context.bot.sendMessage(chat_id=chat, text=update.message.text)
+        except Exception as e:
+            logger.error(f"Erro ao interagir com o chat {chat}: {e}")
+
+    # Avisa que esse admin mandou o broadcast
+    logger.info(
+        f"{context.user_data['name']} mandou uma notificação para todos os usuários: {update.message.text}")
+
+    return CHOOSE_ACTION
+
+# ================================= MAIN =======================================
+
 
 def main():
     updater = Updater(token=TELEGRAM_TOKEN, use_context=True)
@@ -670,7 +778,7 @@ def main():
         ],
 
         states={
-            CHOOSING: [
+            CHOOSE_INTERESTS: [
                 CallbackQueryHandler(
                     change_category_state, pattern='^[\\d]+$'),
                 CallbackQueryHandler(submit_selection, pattern='^finish$')
@@ -707,15 +815,30 @@ def main():
                 CommandHandler('clear', clear_rejected_command),
                 CommandHandler('pending', pending_command),
                 CommandHandler('friends', friends_command),
+                CommandHandler('name', edit_name_command),
+                CommandHandler('desc', edit_bio_command),
                 CommandHandler('help', help_command),
+                CommandHandler('notify', notify_command),   # SO PARA ADMINS
             ],
 
-            ACTING: [
+            CHOOSE_ANSWER_FOR_BUTTONS: [
                 CallbackQueryHandler(
                     handle_invite_answer, pattern='^(connect|dismiss)$'),
                 CallbackQueryHandler(
                     handle_pending_answer, pattern='^(accept|reject)$'),
-                MessageHandler(Filters.all, handle_incorrect_answer),
+                MessageHandler(Filters.all, handle_incorrect_choice),
+            ],
+
+            GIVE_NEW_NAME: [
+                MessageHandler(Filters.text, update_name)
+            ],
+
+            GIVE_NEW_BIO: [
+                MessageHandler(Filters.text, update_bio)
+            ],
+
+            SEND_NOTIFICATION: [
+                MessageHandler(Filters.text, send_notification)
             ],
         },
 

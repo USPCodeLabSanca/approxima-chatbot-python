@@ -674,7 +674,9 @@ def friends_command(update, context):
 
     response = "Suas conexões atuais são:\n\n"
 
-    for user in context.user_data['connections']:
+    connections_set = set(context.user_data['connections'])
+
+    for user in connections_set:
         user_info = db.get_by_id(user)
 
         user_info_txt = "_" * 33

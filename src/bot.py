@@ -131,25 +131,26 @@ def start_command(update, context):
 
         return CHOOSE_ACTION
 
-    else:  # Novo usuario: deve se registrar
-        # Crio os campos necessarios para o user context
-        context.user_data['chat_id'] = update.effective_chat.id
-        context.user_data['username'] = update.effective_user.name
-        context.user_data['name'] = ''  # string
-        context.user_data['bio'] = ''    # string
-        context.user_data['interests'] = []
-        context.user_data['rejects'] = []
-        context.user_data['invited'] = []
-        context.user_data['pending'] = []
-        context.user_data['connections'] = []
+    # Se chegou aqui é novo usuario e deve se registrar
 
-        message = "Muito prazer! Vamos começar o seu registro no Approxima!\n\n"
-        message += "Primeiro, me forneça o seu nome.\n"
-        message += "Ex: Joao Vitor dos Santos"
+    # Crio os campos necessarios para o user context
+    context.user_data['chat_id'] = update.effective_chat.id
+    context.user_data['username'] = update.effective_user.name
+    context.user_data['name'] = ''  # string
+    context.user_data['bio'] = ''    # string
+    context.user_data['interests'] = []
+    context.user_data['rejects'] = []
+    context.user_data['invited'] = []
+    context.user_data['pending'] = []
+    context.user_data['connections'] = []
 
-        update.message.reply_text(message)
+    message = "Muito prazer! Vamos começar o seu registro no Approxima!\n\n"
+    message += "Primeiro, me forneça o seu nome.\n"
+    message += "Ex: Joao Vitor dos Santos"
 
-        return REGISTER_NAME
+    update.message.reply_text(message)
+
+    return REGISTER_NAME
 
 
 def register_name(update, context):

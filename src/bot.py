@@ -800,6 +800,7 @@ def main():
         ],
 
         states={
+            # Os primeiros dois estados são para o CADASTRO
             REGISTER_NAME: [
                 MessageHandler(Filters.text, register_name)
             ],

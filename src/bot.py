@@ -686,6 +686,10 @@ def friends_command(update, context):
         user_info_txt += f"\nPara conversar, clique aqui --> {user_info['username']}\n"
         user_info_txt += "\n"
 
+        if (len(response) + len(user_info_txt) > 4096):
+            update.message.reply_text(response)
+            response = ''
+
         response += user_info_txt
 
     update.message.reply_text(response)

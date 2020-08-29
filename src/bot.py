@@ -9,7 +9,7 @@ import numpy as np
 from dbwrapper import Database
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Updater, Filters, CommandHandler, MessageHandler, ConversationHandler, CallbackQueryHandler
-
+from categories import categories
 
 # ================================== ENV =======================================
 
@@ -27,44 +27,6 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
                     level=logging.INFO)
 
 logger = logging.getLogger(__name__)
-
-
-# =============================== CATEGORIAS ===================================
-
-
-categories = ['Filmes', 'Séries', 'Shows', 'Jogos eletrônicos', 'Jogos de tabuleiro',
-              'Jogos de cartas', 'Livros e Literatura', 'Beleza e Fitness', 'Idiomas',
-              'Ciência e Ensino (tópicos acadêmicos)', 'Hardware', 'Software', 'Esportes',
-              'Dança', 'Música', 'Teatro', 'Pintura e Desenho', 'Culinária',
-              'Mão na massa (consertos, costura, tricô, etc.)', 'Casa e Jardim', 'Pets',
-              'Compras', 'Trabalho voluntário', 'Política', 'Finanças', 'Viagens e Turismo',
-              'Intercâmbio', 'Rolês universitários', 'Automóveis e Veículos',
-              'Esotérico e Holístico', 'Espiritualidade', 'Imobiliário', 'Artesanato',
-              'Causas (ambientais, feminismo, vegan...)', 'Moda',
-              'Empreenderismo e Negócios', 'Fotografia', 'História', 'Mitologia',
-              'Pessoas e Sociedade', 'Anime e Mangá', 'Ficção científica',
-              'Fantasia (RPG, senhor dos anéis, etc.)', 'Ciclismo', 'Quadrinhos', 'Saúde']
-
-# Give each category an ID
-categories = enumerate(categories)
-
-
-def normalizeCategories(categories, num_per_row=1):
-    new_categories = []
-    new_row = []
-    for id, cat in categories:
-        if id > 0 and id % num_per_row == 0:  # start a new row
-            new_categories.append(new_row[:])  # makes a copy
-            new_row = []
-            new_row.append((id, cat))
-        else:
-            new_row.append((id, cat))
-    return new_categories
-
-
-# Categorias que já estão na forma certa para produzir o teclado do Bot depois
-norm_categories = normalizeCategories(categories, 1)
-
 
 # ================================== BD ========================================
 
@@ -117,7 +79,6 @@ def start_command(update, context):
 
     # facilita na hora de referenciar esse usuario
     myself = update.effective_user.id
-
     my_data = db.get_by_id(myself)
 
     if my_data is not None:
@@ -261,6 +222,44 @@ def update_bio(update, context):
 
 # ================================== PREFS =====================================
 
+def buildPrefsKeyboard(my_cats, sub_menu=''):
+    keyboard = []
+
+    if not sub_menu:
+      categories_to_show = categories
+    else:
+      categories_to_show = categories[sub_menu][1]
+
+    for category in categories_to_show:
+        if sub_menu:
+          category_id = str(categories[sub_menu][0]) + "," + str(categories_to_show[category][0])
+        else:
+          category_id = str(categories_to_show[category][0])
+
+        category_sub_meny_text = '|sub' + sub_menu if sub_menu else ''
+
+        if not sub_menu and isinstance(categories[category][1], dict) and len(categories[category][1].keys()) > 0:
+            category_text = category + " ->"
+            callBack_text = "open" + category
+        elif category_id in my_cats:
+            category_text = "✅ " + category
+            callBack_text = "toggle" + category_id + category_sub_meny_text
+        else:
+            category_text = category
+            callBack_text = "toggle" + category_id + category_sub_meny_text
+        keyboard.append([
+          InlineKeyboardButton(category_text, callback_data=callBack_text)
+        ])
+
+    if sub_menu:
+        keyboard.append(
+            [InlineKeyboardButton("<- Voltar", callback_data="voltar")]
+        )
+    keyboard.append(
+        [InlineKeyboardButton("ENVIAR", callback_data="finish")]
+    )
+
+    return keyboard
 
 def prefs_command(update, context):
     '''
@@ -274,18 +273,41 @@ def prefs_command(update, context):
 
     my_cats = context.user_data['interests']
 
-    keyboard = [
-        [
-            InlineKeyboardButton("☑ " + cat, callback_data=str(id)) if id in my_cats
-            else InlineKeyboardButton(cat, callback_data=str(id))
-            for id, cat in row
-        ]
-        for row in norm_categories
-    ]
-    keyboard.append([InlineKeyboardButton("ENVIAR", callback_data="finish")])
+    keyboard = buildPrefsKeyboard(my_cats)
 
     update.message.reply_text(
         response, reply_markup=InlineKeyboardMarkup(keyboard))
+
+    return CHOOSE_INTERESTS
+
+
+def open_category_state(update, context):
+    update.callback_query.answer()  # await for answer
+
+    my_cats = context.user_data['interests']
+
+    # Trata a resposta anterior
+    category = update.callback_query.data[4:]
+
+    # Constroi o novo teclado
+    keyboard = buildPrefsKeyboard(my_cats, category)
+
+    update.callback_query.edit_message_reply_markup(
+        reply_markup=InlineKeyboardMarkup(keyboard))
+
+    return CHOOSE_INTERESTS
+
+
+def back_to_all_categories_state(update, context):
+    update.callback_query.answer()  # await for answer
+
+    my_cats = context.user_data['interests']
+
+    # Constroi o novo teclado
+    keyboard = buildPrefsKeyboard(my_cats)
+
+    update.callback_query.edit_message_reply_markup(
+        reply_markup=InlineKeyboardMarkup(keyboard))
 
     return CHOOSE_INTERESTS
 
@@ -296,22 +318,19 @@ def change_category_state(update, context):
     my_cats = context.user_data['interests']
 
     # Trata a resposta anterior
-    category_id = int(update.callback_query.data)
+    sub_category = ''
+    category_id = update.callback_query.data[6:]
+    if '|sub' in category_id:
+      sub_index = category_id.index('|sub')
+      sub_category = category_id[sub_index+4:]
+      category_id = category_id[:sub_index]
     if category_id in my_cats:
         my_cats.remove(category_id)
     else:
         my_cats.append(category_id)
 
     # Constroi o novo teclado
-    keyboard = [
-        [
-            InlineKeyboardButton("☑ " + cat, callback_data=str(id)) if id in my_cats
-            else InlineKeyboardButton(cat, callback_data=str(id))
-            for id, cat in row
-        ]
-        for row in norm_categories
-    ]
-    keyboard.append([InlineKeyboardButton("ENVIAR", callback_data="finish")])
+    keyboard = buildPrefsKeyboard(my_cats, sub_category)
 
     update.callback_query.edit_message_reply_markup(
         reply_markup=InlineKeyboardMarkup(keyboard))
@@ -883,8 +902,14 @@ def main():
         states={
             CHOOSE_INTERESTS: [
                 CallbackQueryHandler(
-                    change_category_state, pattern='^[\\d]+$'),
-                CallbackQueryHandler(submit_selection, pattern='^finish$')
+                    change_category_state, pattern='^toggle'
+                ),
+                CallbackQueryHandler(
+                    open_category_state, pattern='^open'
+                ),
+                CallbackQueryHandler(submit_selection, pattern='^finish$'),
+                CallbackQueryHandler(
+                    back_to_all_categories_state, pattern='^voltar$')
             ],
         },
 

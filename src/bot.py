@@ -13,6 +13,7 @@ from telegram.ext import Updater, Filters, CommandHandler, MessageHandler, Conve
 
 # ================================== ENV =======================================
 
+
 if not os.getenv("IS_PRODUCTION"):
     from dotenv import load_dotenv
     load_dotenv()
@@ -67,16 +68,22 @@ norm_categories = normalizeCategories(categories, 1)
 
 # ================================== BD ========================================
 
+
 is_production = False if os.getenv("IS_PRODUCTION") is None else True
 db = Database(CONNECTION_STRING, is_production=is_production)
 
+
 # ================================== BOT =======================================
+
 
 # States
 REGISTER_NAME, REGISTER_BIO, CHOOSE_ACTION, CHOOSE_ANSWER_FOR_BUTTONS, GIVE_NEW_NAME, GIVE_NEW_BIO, SEND_NOTIFICATION = range(
     7)
-# States for interests conversation
-CHOOSE_INTERESTS = 7
+# States for interests and friends conversations
+CHOOSE_INTERESTS, CHOOSE_PAGE = range(7, 9)
+
+
+# ================================= HELP =======================================
 
 
 def help_command(update, context):
@@ -96,6 +103,9 @@ def help_command(update, context):
     update.message.reply_text(text)
 
     return CHOOSE_ACTION
+
+
+# ================================= START ======================================
 
 
 def start_command(update, context):
@@ -153,6 +163,9 @@ def start_command(update, context):
     return REGISTER_NAME
 
 
+# ================================ REGISTER ====================================
+
+
 def register_name(update, context):
     response = f"Seu nome é:\n\"{update.message.text}\"\n\n"
     response += "Legal! Agora, me conte um pouco mais sobre seus gostos... faça uma pequena descrição de si mesmo.\n"
@@ -192,6 +205,9 @@ def register_bio(update, context):
     update.message.reply_text(response)
 
     return CHOOSE_ACTION
+
+
+# ================================== EDIT ======================================
 
 
 def edit_name_command(update, context):
@@ -241,6 +257,9 @@ def update_bio(update, context):
     update.message.reply_text("Sua descrição foi alterada com sucesso!")
 
     return CHOOSE_ACTION
+
+
+# ================================== PREFS =====================================
 
 
 def prefs_command(update, context):
@@ -311,6 +330,9 @@ def submit_selection(update, context):
 
     update.effective_message.reply_text('Seus interesses foram atualizados!')
     return ConversationHandler.END
+
+
+# ================================== SHOW ======================================
 
 
 def show_person_command(update, context):
@@ -396,6 +418,9 @@ def show_person_command(update, context):
         text, reply_markup=InlineKeyboardMarkup(keyboard))
 
     return CHOOSE_ANSWER_FOR_BUTTONS
+
+
+# ================================== RANDOM ====================================
 
 
 def get_random_person_command(update, context):
@@ -517,6 +542,9 @@ def handle_invite_answer(update, context):
     return CHOOSE_ACTION
 
 
+# ================================= CLEAR ======================================
+
+
 def clear_rejected_command(update, context):
     '''
     Deleta o array de pessoas que o usuario já rejeitou,
@@ -538,6 +566,9 @@ def clear_rejected_command(update, context):
         'Tudo certo! Sua lista de \"rejeitados\" foi limpa!')
 
     return CHOOSE_ACTION
+
+
+# ================================ PENDING ====================================
 
 
 def pending_command(update, context):
@@ -648,6 +679,48 @@ def handle_pending_answer(update, context):
     return CHOOSE_ACTION
 
 
+# ================================ FRIENDS =====================================
+
+
+def friends_paginator(connections, cur_page, limit=2):
+    '''
+    Returns both the LIMIT-first friends, considering the current page, and a list
+    of pairs (buttons), each one with the button's respective text and callback_data
+    '''
+
+    index = cur_page * limit
+    friends = connections[index:index + limit]
+
+    buttons = [('<< 1', '0'), ('< 2', '1'), ('3', '2'),
+               ('4 >', '3'), ('5 >>', '4')]
+
+    return friends, buttons
+
+
+def build_friends_message(connections):
+    mark_char = "#"
+
+    response = mark_char * 32
+    response += "\n"
+
+    # Adding friends info to the message
+    for user in connections:
+        user_info = db.get_by_id(user)
+
+        user_info_txt = f"\n{user_info['name']}\n"
+        user_info_txt += f"\n\"{user_info['bio']}\"\n"
+        user_info_txt += f"\nCONVERSAR: {user_info['username']}\n"
+        user_info_txt += "\n"
+        user_info_txt += mark_char * 32
+        user_info_txt += "\n"
+
+        response += user_info_txt
+
+    response += "\n\nUtilize esses botões para navegar entre as páginas:\n\n"
+
+    return response
+
+
 def friends_command(update, context):
     '''
     friends => Mostra o contato (@ do Tele) de todas as pessoas com que o usuário
@@ -668,33 +741,52 @@ def friends_command(update, context):
 
         update.message.reply_text(response)
 
-        return CHOOSE_ACTION
+        return ConversationHandler.END
 
     # Se chegou ate aqui é porque ele tem conexoes
 
-    response = "Suas conexões atuais são:\n\n"
+    connections_set = set(
+        context.user_data['connections']) if is_production else context.user_data['connections']
 
-    connections_set = set(context.user_data['connections'])
+    # Corrige as suas conexoes (localmente) caso hajam repetições
+    if len(connections_set) < len(context.user_data['connections']):
+        context.user_data['connections'] = list(connections_set)
 
-    for user in connections_set:
-        user_info = db.get_by_id(user)
+    friends, button_pairs = friends_paginator(connections_set, 0)
 
-        user_info_txt = "_" * 33
-        user_info_txt += "\n"
-        user_info_txt += f"\n{user_info['name']}\n"
-        user_info_txt += f"\n\"{user_info['bio']}\"\n"
-        user_info_txt += f"\nPara conversar, clique aqui --> {user_info['username']}\n"
-        user_info_txt += "\n"
+    response = build_friends_message(friends)
 
-        if (len(response) + len(user_info_txt) > 4096):
-            update.message.reply_text(response)
-            response = ''
+    # Button pairs consist of (button_text, callback_text)
+    keyboard = [[InlineKeyboardButton(
+        text, callback_data=callback) for text, callback in button_pairs]]
 
-        response += user_info_txt
+    update.message.reply_text(
+        response, reply_markup=InlineKeyboardMarkup(keyboard))
 
-    update.message.reply_text(response)
+    return CHOOSE_PAGE
 
-    return CHOOSE_ACTION
+
+def change_friends_page(update, context):
+    update.callback_query.answer()  # await for answer
+
+    # Trata a resposta anterior
+    cur_page = int(update.callback_query.data)
+
+    friends, button_pairs = friends_paginator(
+        context.user_data['connections'], cur_page)
+
+    response = build_friends_message(friends)
+
+    # Button pairs consist of (button_text, callback_text)
+    keyboard = [[InlineKeyboardButton(
+        text, callback_data=callback) for text, callback in button_pairs]]
+
+    update.callback_query.edit_message_text(response)
+
+    update.callback_query.edit_message_reply_markup(
+        reply_markup=InlineKeyboardMarkup(keyboard))
+
+    return CHOOSE_PAGE
 
 
 # ============================== ERROR/UNKNOWN =================================
@@ -713,6 +805,13 @@ def prefs_unknown_message(update, context):
     '''
     response_message = "Por favor, clique em ENVIAR para terminar de atualizar as suas preferências."
     update.message.reply_text(response_message)
+
+
+def friends_unknown_message(update, context):
+    '''
+    Mensagem ou comando desconhecido (dentro da conversa do comando friends)
+    '''
+    return ConversationHandler.END
 
 
 def unknown_message(update, context):
@@ -798,6 +897,26 @@ def main():
         }
     )
 
+    friends_handler = ConversationHandler(
+        entry_points=[
+            CommandHandler('friends', friends_command)
+        ],
+
+        states={
+            CHOOSE_PAGE: [
+                CallbackQueryHandler(change_friends_page, pattern='^[\\d]+$'),
+            ],
+        },
+
+        fallbacks=[
+            MessageHandler(Filters.all, friends_unknown_message)
+        ],
+
+        map_to_parent={
+            ConversationHandler.END: CHOOSE_ACTION
+        }
+    )
+
     conv_handler = ConversationHandler(
         entry_points=[
             CommandHandler('start', start_command)
@@ -814,12 +933,12 @@ def main():
             ],
 
             CHOOSE_ACTION: [
-                prefs_handler,  # /prefs
+                prefs_handler,
                 CommandHandler('show', show_person_command),
                 CommandHandler('random', get_random_person_command),
                 CommandHandler('clear', clear_rejected_command),
                 CommandHandler('pending', pending_command),
-                CommandHandler('friends', friends_command),
+                friends_handler,
                 CommandHandler('name', edit_name_command),
                 CommandHandler('desc', edit_bio_command),
                 CommandHandler('help', help_command),

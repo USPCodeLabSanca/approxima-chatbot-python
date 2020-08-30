@@ -7,3 +7,4 @@ friends - Mostra todas as suas conexões.
 name - Troca o seu nome.
 desc - Troca a sua descrição.
 help - Mostra os comandos disponíveis.
+start - Reinicia o bot.

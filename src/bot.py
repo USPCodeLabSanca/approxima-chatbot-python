@@ -682,43 +682,115 @@ def handle_pending_answer(update, context):
 # ================================ FRIENDS =====================================
 
 
-def friends_paginator(connections, cur_page, limit=2):
-    '''
-    Returns both the LIMIT-first friends, considering the current page, and a list
-    of pairs (buttons), each one with the button's respective text and callback_data
-    '''
+def friends_paginator(connections):
+    # Connections is an iterable (not guaranteed to be a list)
 
-    index = cur_page * limit
-    friends = connections[index:index + limit]
+    resulting_pages = []
 
-    buttons = [('<< 1', '0'), ('< 2', '1'), ('3', '2'),
-               ('4 >', '3'), ('5 >>', '4')]
+    divider = "\n\n"
+    divider += "=" * 32
+    divider += "\n\n"
 
-    return friends, buttons
+    msg_limit = 1300  # Limit beatifully crafted by hand
 
-
-def build_friends_message(connections):
-    mark_char = "#"
-
-    response = mark_char * 32
-    response += "\n"
+    cur_page_text = ''
 
     # Adding friends info to the message
     for user in connections:
+        # Get their info
         user_info = db.get_by_id(user)
 
-        user_info_txt = f"\n{user_info['name']}\n"
-        user_info_txt += f"\n\"{user_info['bio']}\"\n"
-        user_info_txt += f"\nCONVERSAR: {user_info['username']}\n"
-        user_info_txt += "\n"
-        user_info_txt += mark_char * 32
-        user_info_txt += "\n"
+        # Format their info on a string
+        user_info_txt = f"{user_info['name']}\n"
+        user_info_txt += f"{user_info['username']}\n\n"
+        user_info_txt += f"\"{user_info['bio']}\""
 
-        response += user_info_txt
+        # If user_info_txt is greater than the limit (+ the divider), TRUNCATE IT!
+        if len(user_info_txt) > msg_limit - len(divider):
+            user_info_txt = user_info_txt[:msg_limit - 3] + '...'
 
-    response += "\n\nUtilize esses botões para navegar entre as páginas:\n\n"
+        user_info_txt += divider
 
-    return response
+        # If adding one more user is gonna break the msg limit
+        if len(cur_page_text) + len(user_info_txt) > msg_limit:
+            resulting_pages.append(cur_page_text)
+            cur_page_text = ''
+
+        cur_page_text += user_info_txt
+
+    resulting_pages.append(cur_page_text)
+
+    return resulting_pages
+
+
+def make_buttons(cur_page, final_page):
+    # All pages are passed as 0-based. Then, when returning the buttons with
+    # structure (text, callback_data), callback_data is 0-based and text is 1-based
+
+    button_pairs = []
+
+    if final_page == 0:  # there is only one page, button are not needed
+        return button_pairs  # empty
+
+    if final_page <= 4:
+        # Sei que nro de botoes é certinho o nro de paginas
+        num_buttons = final_page + 1
+
+        for page in np.arange(num_buttons):
+            if page == cur_page:
+                button_pairs.insert(page, (f'⦗{page + 1}⦘', f'{page}'))
+            else:
+                button_pairs.insert(page, (f'{page + 1}', f'{page}'))
+
+        return button_pairs
+
+    # For here on it is guaranteed that there are more than 5 pages and, thus,
+    # there are always 5 buttons
+
+    # Build the first page button
+    if cur_page == 0:
+        button_pairs.append(('⦗1⦘', '0'))
+    elif cur_page < 3:
+        button_pairs.append(('1', '0'))
+    else:   # going back to first page is a huge step
+        button_pairs.append(('« 1 ', '0'))
+
+    # Build the last page button
+    if cur_page == final_page:
+        button_pairs.append((f'⦗{final_page + 1}⦘', f'{final_page}'))
+    elif cur_page > final_page - 3:
+        button_pairs.append((f'{final_page + 1}', f'{final_page}'))
+    else:   # going to the last page is a huge step
+        button_pairs.append((f'{final_page + 1} »', f'{final_page}'))
+
+    # Middle buttons
+
+    if cur_page < 3:
+        index = 1
+        for page in np.arange(1, 3):
+            if page == cur_page:
+                button_pairs.insert(index, (f'⦗{page + 1}⦘', f'{page}'))
+            else:
+                button_pairs.insert(index, (f'{page + 1}', f'{page}'))
+            index += 1
+        button_pairs.insert(3, ('4 ›', '3'))
+
+    elif cur_page > final_page - 3:
+        index = 1
+        for page in np.arange(final_page - 2, final_page):
+            if page == cur_page:
+                button_pairs.insert(index, (f'⦗{page + 1}⦘', f'{page}'))
+            else:
+                button_pairs.insert(index, (f'{page + 1}', f'{page}'))
+            index += 1
+        button_pairs.insert(1, (f'‹ {final_page - 2}', f'{final_page - 3}'))
+
+    else:
+        button_pairs.insert(1, (f'‹ {cur_page}', f'{cur_page - 1}'))
+        button_pairs.insert(2, (f'⦗{cur_page + 1}⦘', f'{cur_page}'))
+        button_pairs.insert(3, (f'{cur_page + 2} ›', f'{cur_page + 1}'))
+
+    return button_pairs
 
 
 def friends_command(update, context):
@@ -748,13 +820,24 @@ def friends_command(update, context):
     connections_set = set(
         context.user_data['connections']) if is_production else context.user_data['connections']
 
-    # Corrige as suas conexoes (localmente) caso hajam repetições
+    # Corrige as suas conexoes caso hajam repetições
     if len(connections_set) < len(context.user_data['connections']):
+        # Existem repeticoes no original
         context.user_data['connections'] = list(connections_set)
+        db.update_by_id(
+            myself, {'connections': context.user_data['connections']})
 
-    friends, button_pairs = friends_paginator(connections_set, 0)
+    bottom_msg = "Utilize esses botões para navegar entre as páginas:\n\n"
 
-    response = build_friends_message(friends)
+    pages_text_list = friends_paginator(connections_set)
+    context.user_data['friend_pages'] = pages_text_list
+
+    button_pairs = make_buttons(0, len(pages_text_list) - 1)
+
+    response = pages_text_list[0]
+
+    if len(button_pairs) != 0:
+        response += bottom_msg
 
     # Button pairs consist of (button_text, callback_text)
     keyboard = [[InlineKeyboardButton(
@@ -772,10 +855,16 @@ def change_friends_page(update, context):
     # Trata a resposta anterior
     cur_page = int(update.callback_query.data)
 
-    friends, button_pairs = friends_paginator(
-        context.user_data['connections'], cur_page)
+    bottom_msg = "Utilize esses botões para navegar entre as páginas:\n\n"
 
-    response = build_friends_message(friends)
+    pages = context.user_data['friend_pages']
+
+    button_pairs = make_buttons(cur_page, len(pages) - 1)
+
+    response = pages[cur_page]
+
+    if len(button_pairs) != 0:
+        response += bottom_msg
 
     # Button pairs consist of (button_text, callback_text)
     keyboard = [[InlineKeyboardButton(

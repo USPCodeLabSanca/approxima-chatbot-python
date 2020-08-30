@@ -1,3 +1,6 @@
+# Our stuff
+database_versioning/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -12,13 +12,13 @@ def rank(my_interests, other_users_id_interests, log=False):  # interests are li
     if len(other_users_id_interests) == 0:
         return None
 
-    my_interests = np.array(my_interests, dtype=np.uint16)
+    my_interests = np.array(my_interests)
 
     scores = np.zeros((len(other_users_id_interests), 2), dtype=np.uint32)
 
     for i, user_id in enumerate(other_users_id_interests):
         their_interests = np.array(
-            other_users_id_interests[user_id], dtype=np.uint16)
+            other_users_id_interests[user_id])
         their_score = len(np.intersect1d(my_interests, their_interests))
 
         scores[i][0] = user_id
@@ -53,17 +53,17 @@ def rank(my_interests, other_users_id_interests, log=False):  # interests are li
 def test():
     print('===== TESTE =====')
 
-    my_interests = [0, 1, 3]
+    my_interests = ['0', '1', '3']
 
     users_interests = {
-        1111: [0, 5],    # 2nd tier (score 1)
-        2222: [3],   # 2nd tier (score 1)
-        3333: [5],   # 3rd tier (score 0)
-        4444: [3, 4],    # 2nd tier (score 1)
-        5555: [0, 1, 4],  # 1st tier (score 2)
-        6666: [1, 2],    # 2nd tier (score 1)
-        7777: [1, 2, 3, 4],  # 1st tier (score 2)
-        8888: [1, 5],    # 2nd tier (score 1)
+        1111: ['0', '5'],    # 2nd tier (score 1)
+        2222: ['3'],   # 2nd tier (score 1)
+        3333: ['5'],   # 3rd tier (score 0)
+        4444: ['3', '4'],    # 2nd tier (score 1)
+        5555: ['0', '1', '4'],  # 1st tier (score 2)
+        6666: ['1', '2'],    # 2nd tier (score 1)
+        7777: ['1', '2', '3', '4'],  # 1st tier (score 2)
+        8888: ['1', '5'],    # 2nd tier (score 1)
     }
 
     print(rank(my_interests, users_interests, log=True))

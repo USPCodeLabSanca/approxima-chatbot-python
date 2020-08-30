@@ -39,6 +39,7 @@ old_categories = ['Filmes', 'Séries', 'Shows', 'Jogos eletrônicos', 'Jogos de 
 def get_new_categoria_id(old_id):
   if not isinstance(old_id, int):
     return ''
+
   old_category = old_categories[old_id]
 
   [new_id, sub_categories] = categories[old_category]
@@ -53,12 +54,11 @@ def migrate_user_categories_ids(user_id):
     new_id = get_new_categoria_id(category_id)
     if new_id != '':
       new_ids.append(str(new_id))
-  # print(new_ids)
+
   db.update_by_id(user_id, {'interests': new_ids})
 
 def migrate():
   for id in db.list_ids():
     migrate_user_categories_ids(id)
-  # migrate_user_categories_ids(341699070)
 
 migrate()

@@ -99,7 +99,7 @@ def help_command(update, context):
     text += "/name --> Troca o seu nome.\n"
     text += "/desc --> Troca a sua descrição.\n"
     text += "/help --> Mostra novamente essa lista. Alternativamente, você pode digitar \"/\" e a lista de comandos também aparecerá!\n\n"
-    text += "Caso tenha algum problema ou crítica/sugestão, chama um dos meus desenvolvedores (eles me disseram que não mordem) --> @vitorsanc @arenasoy @Angra018 @OliveiraNelson"
+    text += "Caso tenha algum problema ou crítica/sugestão, chama um dos meus desenvolvedores (eles me disseram que não mordem) --> @vitorsanc @Lui_Tombo @arenasoy @Angra018 @OliveiraNelson"
     update.message.reply_text(text)
 
     return CHOOSE_ACTION

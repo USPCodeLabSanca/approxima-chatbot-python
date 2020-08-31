@@ -9,7 +9,7 @@ import numpy as np
 from dbwrapper import Database
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Updater, Filters, CommandHandler, MessageHandler, ConversationHandler, CallbackQueryHandler
-from categories import categories
+from categories import CATEGORIES
 
 # ================================== ENV =======================================
 
@@ -226,20 +226,20 @@ def build_prefs_keyboard(my_cats, sub_menu=''):
     keyboard = []
 
     if not sub_menu:
-        categories_to_show = categories
+        categories_to_show = CATEGORIES
     else:
-        categories_to_show = categories[sub_menu][1]
+        categories_to_show = CATEGORIES[sub_menu][1]
 
     for category in categories_to_show:
         if sub_menu:
-            category_id = str(categories[sub_menu][0]) + \
+            category_id = str(CATEGORIES[sub_menu][0]) + \
                 "," + str(categories_to_show[category][0])
         else:
             category_id = str(categories_to_show[category][0])
 
         category_sub_menu_text = '|sub' + sub_menu if sub_menu else ''
 
-        if not sub_menu and isinstance(categories[category][1], dict) and len(categories[category][1].keys()) > 0:
+        if not sub_menu and isinstance(CATEGORIES[category][1], dict) and len(CATEGORIES[category][1].keys()) > 0:
             category_text = category + " ⬊"
             callback_text = "open" + category
         elif category_id in my_cats:

@@ -1,4 +1,4 @@
-{
+CATEGORIES = {
     "Anime e Mangá": [
         0,
         {}

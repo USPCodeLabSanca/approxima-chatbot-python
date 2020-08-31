@@ -53,17 +53,17 @@ def rank(my_interests, other_users_id_interests, log=False):  # interests are li
 def test():
     print('===== TESTE =====')
 
-    my_interests = ['0', '1', '3']
+    my_interests = ['0', '1', '3', '6,2', '7,3']
 
     users_interests = {
-        1111: ['0', '5'],    # 2nd tier (score 1)
-        2222: ['3'],   # 2nd tier (score 1)
-        3333: ['5'],   # 3rd tier (score 0)
-        4444: ['3', '4'],    # 2nd tier (score 1)
-        5555: ['0', '1', '4'],  # 1st tier (score 2)
-        6666: ['1', '2'],    # 2nd tier (score 1)
-        7777: ['1', '2', '3', '4'],  # 1st tier (score 2)
-        8888: ['1', '5'],    # 2nd tier (score 1)
+        1111: ['0', '5', '6,0', '7,2'],
+        2222: ['3', '6,1', '6,2'],   # 2nd tier (score 1)
+        3333: ['5', '7,3'],   # 3rd tier (score 0)
+        4444: ['3', '4', '7,3', '7,4'],    # 2nd tier (score 1)
+        5555: ['0', '1', '4', '7,4', '6,1'],  # 1st tier (score 2)
+        6666: ['1', '2', '6,2', '7,3'],    # 2nd tier (score 1)
+        7777: ['1', '2', '3', '4', '6,3'],  # 1st tier (score 2)
+        8888: ['1', '5'],
     }
 
     print(rank(my_interests, users_interests, log=True))

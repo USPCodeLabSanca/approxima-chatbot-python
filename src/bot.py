@@ -55,7 +55,7 @@ def help_command(update, context):
     text = "/prefs --> Retorna uma lista com todas as categorias de interesse. A partir dela, você poderá adicionar ou remover interesses.\n"
     text += "/show --> Mostra uma pessoa que tem interesses em comum.\n"
     text += "/random --> Mostra uma pessoa aleatória.\n"
-    text += "/clear --> Permite que as pessoas que você respondeu com \"Agora não\" apareçam de novo nos dois comando acima.\n"
+    text += "/clear --> Permite que as pessoas que você respondeu com \"Agora não\" apareçam de novo nos dois comandos acima.\n"
     text += "/pending --> Mostra uma solicitação de conexão que você possui e ainda não respondeu.\n"
     text += "/friends --> Mostra o contato de todas as pessoas com que você já se conectou.\n"
     text += "/name --> Troca o seu nome.\n"
@@ -115,9 +115,12 @@ def start_command(update, context):
     context.user_data['pending'] = []
     context.user_data['connections'] = []
 
-    message = "Muito prazer! Vamos começar o seu registro no Approxima!\n\n"
-    message += "Primeiro, me forneça o seu nome.\n"
-    message += "Ex: Joao Vitor dos Santos"
+    message = "Muito prazer! Vamos começar o seu registro no Approxima!"
+
+    update.message.reply_text(message)
+
+    message = "Primeiro, me forneça o seu nome.\n"
+    message += "Ex: João Vitor dos Santos"
 
     update.message.reply_text(message)
 
@@ -128,8 +131,7 @@ def start_command(update, context):
 
 
 def register_name(update, context):
-    response = f"Seu nome é:\n\"{update.message.text}\"\n\n"
-    response += "Legal! Agora, me conte um pouco mais sobre seus gostos... faça uma pequena descrição de si mesmo.\n"
+    response = "Legal! Agora, me conte um pouco mais sobre seus gostos... faça uma pequena descrição de si mesmo.\n"
     response += "Ela será utilizada para apresentar você para os outros usuários do Approxima (não mostrarei o seu nome).\n\n"
     response += "OBS: Você poderá mudar essa descrição depois, mas lembre-se de que somente ela irá aparecer para os outros usuários quando formos te apresentar a eles!"
 
@@ -145,9 +147,7 @@ def register_bio(update, context):
     # facilita na hora de referenciar esse usuario
     myself = update.effective_user.id
 
-    response = f"Sua descrição é:\n"
-    response += f"\"{update.message.text}\".\n\n"
-    response += "Boa! Agora só falta você adicionar alguns interesses para começar a usar o Approxima!\n"
+    response = "Boa! Agora só falta você adicionar alguns interesses para começar a usar o Approxima!\n"
     response += "Clique (ou toque) aqui --> /prefs\n\n"
     response += "Após essa etapa você já pode começar a usar os meus comandos!\n"
     response += "Caso se sinta perdido em algum momento, lembre-se que existe o comando /help para te ajudar ;)"
@@ -222,44 +222,47 @@ def update_bio(update, context):
 
 # ================================== PREFS =====================================
 
-def buildPrefsKeyboard(my_cats, sub_menu=''):
+def build_prefs_keyboard(my_cats, sub_menu=''):
     keyboard = []
 
     if not sub_menu:
-      categories_to_show = categories
+        categories_to_show = categories
     else:
-      categories_to_show = categories[sub_menu][1]
+        categories_to_show = categories[sub_menu][1]
 
     for category in categories_to_show:
         if sub_menu:
-          category_id = str(categories[sub_menu][0]) + "," + str(categories_to_show[category][0])
+            category_id = str(categories[sub_menu][0]) + \
+                "," + str(categories_to_show[category][0])
         else:
-          category_id = str(categories_to_show[category][0])
+            category_id = str(categories_to_show[category][0])
 
-        category_sub_meny_text = '|sub' + sub_menu if sub_menu else ''
+        category_sub_menu_text = '|sub' + sub_menu if sub_menu else ''
 
         if not sub_menu and isinstance(categories[category][1], dict) and len(categories[category][1].keys()) > 0:
-            category_text = category + " ->"
-            callBack_text = "open" + category
+            category_text = category + " ⬊"
+            callback_text = "open" + category
         elif category_id in my_cats:
             category_text = "✅ " + category
-            callBack_text = "toggle" + category_id + category_sub_meny_text
+            callback_text = "toggle" + category_id + category_sub_menu_text
         else:
             category_text = category
-            callBack_text = "toggle" + category_id + category_sub_meny_text
+            callback_text = "toggle" + category_id + category_sub_menu_text
         keyboard.append([
-          InlineKeyboardButton(category_text, callback_data=callBack_text)
+            InlineKeyboardButton(category_text, callback_data=callback_text)
         ])
 
     if sub_menu:
         keyboard.append(
-            [InlineKeyboardButton("<- Voltar", callback_data="voltar")]
+            [InlineKeyboardButton("⬉ VOLTAR", callback_data="goback")]
         )
+
     keyboard.append(
-        [InlineKeyboardButton("ENVIAR", callback_data="finish")]
+        [InlineKeyboardButton("❰ ENVIAR ❱", callback_data="finish")]
     )
 
     return keyboard
+
 
 def prefs_command(update, context):
     '''
@@ -273,7 +276,7 @@ def prefs_command(update, context):
 
     my_cats = context.user_data['interests']
 
-    keyboard = buildPrefsKeyboard(my_cats)
+    keyboard = build_prefs_keyboard(my_cats)
 
     update.message.reply_text(
         response, reply_markup=InlineKeyboardMarkup(keyboard))
@@ -290,7 +293,7 @@ def open_category_state(update, context):
     category = update.callback_query.data[4:]
 
     # Constroi o novo teclado
-    keyboard = buildPrefsKeyboard(my_cats, category)
+    keyboard = build_prefs_keyboard(my_cats, category)
 
     update.callback_query.edit_message_reply_markup(
         reply_markup=InlineKeyboardMarkup(keyboard))
@@ -304,7 +307,7 @@ def back_to_all_categories_state(update, context):
     my_cats = context.user_data['interests']
 
     # Constroi o novo teclado
-    keyboard = buildPrefsKeyboard(my_cats)
+    keyboard = build_prefs_keyboard(my_cats)
 
     update.callback_query.edit_message_reply_markup(
         reply_markup=InlineKeyboardMarkup(keyboard))
@@ -321,16 +324,16 @@ def change_category_state(update, context):
     sub_category = ''
     category_id = update.callback_query.data[6:]
     if '|sub' in category_id:
-      sub_index = category_id.index('|sub')
-      sub_category = category_id[sub_index+4:]
-      category_id = category_id[:sub_index]
+        sub_index = category_id.index('|sub')
+        sub_category = category_id[sub_index+4:]
+        category_id = category_id[:sub_index]
     if category_id in my_cats:
         my_cats.remove(category_id)
     else:
         my_cats.append(category_id)
 
     # Constroi o novo teclado
-    keyboard = buildPrefsKeyboard(my_cats, sub_category)
+    keyboard = build_prefs_keyboard(my_cats, sub_category)
 
     update.callback_query.edit_message_reply_markup(
         reply_markup=InlineKeyboardMarkup(keyboard))
@@ -405,7 +408,7 @@ def show_person_command(update, context):
             users_interests[int(user)] = user_data.get('interests')
 
     target = ranker.rank(
-        context.user_data['interests'].copy(), users_interests)
+        context.user_data['interests'].copy(), users_interests, log=True)
 
     if target is None:
         # Nao ha ninguem com as preferencias do usuario ainda
@@ -836,8 +839,7 @@ def friends_command(update, context):
 
     # Se chegou ate aqui é porque ele tem conexoes
 
-    connections_set = set(
-        context.user_data['connections']) if is_production else context.user_data['connections']
+    connections_set = set(context.user_data['connections'])
 
     # Corrige as suas conexoes caso hajam repetições
     if len(connections_set) < len(context.user_data['connections']):
@@ -998,7 +1000,7 @@ def main():
                 ),
                 CallbackQueryHandler(submit_selection, pattern='^finish$'),
                 CallbackQueryHandler(
-                    back_to_all_categories_state, pattern='^voltar$')
+                    back_to_all_categories_state, pattern='^goback$')
             ],
         },
 

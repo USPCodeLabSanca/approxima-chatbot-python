@@ -10,6 +10,7 @@ from dbwrapper import Database
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Updater, Filters, CommandHandler, MessageHandler, ConversationHandler, CallbackQueryHandler
 from categories import CATEGORIES
+from utils import unique_list
 
 # ================================== ENV =======================================
 
@@ -839,7 +840,8 @@ def friends_command(update, context):
 
     # Se chegou ate aqui é porque ele tem conexoes
 
-    connections_set = set(context.user_data['connections'])
+    connections_set = unique_list(
+        context.user_data['connections']) if is_production else context.user_data['connections']
 
     # Corrige as suas conexoes caso hajam repetições
     if len(connections_set) < len(context.user_data['connections']):

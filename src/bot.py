@@ -169,7 +169,7 @@ def register_bio(update, context):
 
     response = "Boa! Agora só falta você adicionar alguns interesses para começar a usar o Approxima!\n"
     response += "Clique (ou toque) aqui --> /prefs\n\n"
-    response += "Após essa etapa você já pode começar a usar os meus comandos!\n"
+    response += "Após finalizada a etapa acima você já poderá começar a usar os meus comandos!\n"
     response += "Caso se sinta perdido em algum momento, lembre-se que existe o comando /help para te ajudar ;)"
 
     context.user_data['bio'] = update.message.text

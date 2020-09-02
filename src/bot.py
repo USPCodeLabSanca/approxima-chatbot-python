@@ -40,10 +40,10 @@ db = Database(CONNECTION_STRING, is_production=is_production)
 
 
 # States
-REGISTER_NAME, REGISTER_BIO, CHOOSE_ACTION, CHOOSE_ANSWER_FOR_BUTTONS, GIVE_NEW_NAME, GIVE_NEW_BIO, SEND_NOTIFICATION = range(
-    7)
+LIMBO, REGISTER_NAME, REGISTER_BIO, CHOOSE_ACTION, CHOOSE_ANSWER_FOR_BUTTONS, GIVE_NEW_NAME, GIVE_NEW_BIO, SEND_NOTIFICATION = range(
+    8)
 # States for interests and friends conversations
-CHOOSE_INTERESTS, CHOOSE_PAGE = range(7, 9)
+CHOOSE_INTERESTS, CHOOSE_PAGE = range(8, 10)
 
 
 # ================================= HELP =======================================
@@ -69,6 +69,12 @@ def help_command(update, context):
 
 
 # ================================= START ======================================
+
+
+def ask_for_username(update, context):
+    response = "Por favor, siga os passos dados no comando /start e defina o seu Nome de Usuário do Telegram para continuar."
+    update.message.reply_text(response)
+    return LIMBO
 
 
 def start_command(update, context):
@@ -104,6 +110,19 @@ def start_command(update, context):
         return CHOOSE_ACTION
 
     # Se chegou aqui é novo usuario e deve se registrar
+
+    if update.effective_user.name[0] != '@':
+        # User does not have username
+        message = "Parece que você não possui um Nome de Usuário do Telegram ainda :(\n"
+        message += "Infelizmente, eu não posso completar o seu registro se você não tiver um, pois será a única forma dos outros usuários entrarem em contato com você.\n\n"
+        message += "Caso queira criar um, basta seguir esses passos (é super simples):\n"
+        message += "\t1: Vá na parte de Configurações (Settings) do Telegram;\n"
+        message += "\t2: É só preencher o campo Nome de Usuário (Username);\n"
+        message += "\t3: Assim que tiver com tudo certinho, me dê o comando /start.\n"
+
+        update.message.reply_text(message)
+
+        return LIMBO
 
     # Crio os campos necessarios para o user context
     context.user_data['chat_id'] = update.effective_chat.id
@@ -1041,6 +1060,13 @@ def main():
         ],
 
         states={
+            # O estado abaixo só será utilizado se o usuário não possuir um username
+            # (@ do Telegram)
+            LIMBO: [
+                MessageHandler(Filters.all & (
+                    ~Filters.command), ask_for_username)
+            ],
+
             # Os primeiros dois estados são para o CADASTRO
             REGISTER_NAME: [
                 MessageHandler(Filters.text, register_name)

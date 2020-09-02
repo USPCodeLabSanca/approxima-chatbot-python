@@ -713,7 +713,7 @@ def handle_pending_answer(update, context):
                             text=text_target)
 
     my_text = 'Parabéns! Você acaba de ganhar uma nova conexão! Que tal dar um \"oi\" pra elu? :)\n'
-    my_text += "Use o comando /friends para ver a sua nova conexão!"
+    my_text += "Use o comando /friends para ver a sua nova conexão! Ela estará no final da última página."
 
     context.bot.sendMessage(chat_id=context.user_data['chat_id'],
                             text=my_text)

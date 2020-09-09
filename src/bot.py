@@ -53,6 +53,8 @@ def help_command(update, context):
     '''
     Mostra os comandos disponiveis
     '''
+    db.register_action('help_command', update.effective_user.id)
+
     text = "/prefs --> Retorna uma lista com todas as categorias de interesse. A partir dela, você poderá adicionar ou remover interesses.\n"
     text += "/show --> Mostra uma pessoa que tem interesses em comum.\n"
     text += "/random --> Mostra uma pessoa aleatória.\n"
@@ -64,8 +66,6 @@ def help_command(update, context):
     text += "/help --> Mostra novamente essa lista. Alternativamente, você pode digitar \"/\" e a lista de comandos também aparecerá!\n\n"
     text += "Caso tenha algum problema ou crítica/sugestão, chama um dos meus desenvolvedores (eles me disseram que não mordem) --> @vitorsanc @Lui_Tombo @arenasoy @Angra018 @OliveiraNelson"
     update.message.reply_text(text)
-
-    db.register_action('help_command', update.effective_user.id)
 
     return CHOOSE_ACTION
 
@@ -204,15 +204,19 @@ def edit_name_command(update, context):
 
 
 def update_name(update, context):
-    if update.message.text == ".":
-        update.message.reply_text("Ok! Não vou alterar seu nome.")
-        return CHOOSE_ACTION
-
     # facilita na hora de referenciar esse usuario
     myself = update.effective_user.id
 
+    if update.message.text == ".":
+        db.register_action('edit_name_command', myself,
+                           additional_data={'changed': False})
+        update.message.reply_text("Ok! Não vou alterar seu nome.")
+        return CHOOSE_ACTION
+
     context.user_data['name'] = update.message.text
     db.update_user_by_id(myself, {'name': update.message.text})
+    db.register_action('edit_name_command', myself,
+                       additional_data={'changed': True, 'new_name': update.message.text})
 
     update.message.reply_text("Seu nome foi alterado com sucesso!")
 
@@ -229,15 +233,19 @@ def edit_bio_command(update, context):
 
 
 def update_bio(update, context):
-    if update.message.text == ".":
-        update.message.reply_text("Ok! Não vou alterar sua descrição.")
-        return CHOOSE_ACTION
-
     # facilita na hora de referenciar esse usuario
     myself = update.effective_user.id
 
+    if update.message.text == ".":
+        db.register_action('edit_desc_command', myself,
+                           additional_data={'changed': False})
+        update.message.reply_text("Ok! Não vou alterar sua descrição.")
+        return CHOOSE_ACTION
+
     context.user_data['bio'] = update.message.text
     db.update_user_by_id(myself, {'bio': update.message.text})
+    db.register_action('edit_desc_command', myself,
+                       additional_data={'changed': True, 'new_desc': update.message.text})
 
     update.message.reply_text("Sua descrição foi alterada com sucesso!")
 
@@ -349,7 +357,7 @@ def change_category_state(update, context):
     category_id = update.callback_query.data[6:]
     if '|sub' in category_id:
         sub_index = category_id.index('|sub')
-        sub_category = category_id[sub_index+4:]
+        sub_category = category_id[sub_index + 4:]
         category_id = category_id[:sub_index]
     if category_id in my_cats:
         my_cats.remove(category_id)
@@ -374,6 +382,8 @@ def submit_selection(update, context):
     # Guarda as informacoes no BD
     db.update_user_by_id(
         myself, {'interests': context.user_data['interests']})
+
+    db.register_action('edit_interests_command', myself)
 
     update.effective_message.reply_text('Seus interesses foram atualizados!')
     return ConversationHandler.END
@@ -417,23 +427,29 @@ def show_person_command(update, context):
         all_users, not_allowed_users, assume_unique=True
     )
 
-    # LEMBRAR QUE, A PARTIR DAQUI, TODOS OS USERS SÃO np.uint32 E NÃO int,
-    # portanto o casting se faz necessario
-
     if len(all_users) == len(not_allowed_users):
         update.message.reply_text(
             'Não tenho ninguém novo para te mostrar no momento... que tal tentar amanhã? :)')
         return CHOOSE_ACTION
 
-    # Mapeia os usuarios aos seus interesses
-    users_interests = {}
-    for user in allowed_users:
-        user_data = db.get_user_by_id(int(user))
+    # LEMBRAR QUE, A PARTIR DAQUI, TODOS OS USERS SÃO np.uint32 E NÃO int,
+    # portanto o casting se faz necessario
+    allowed_users = allowed_users.astype(int)
+
+    # Pega as informacoes de todos os usuarios na DB
+    allowed_users_data = db.get_users_in_list(allowed_users.tolist())
+
+    # Mapeia os usuarios aos seus interesses e posicao no vetor de allowed users
+    map_users = {}
+    for i, user_data in enumerate(allowed_users_data):
         if myself not in user_data['rejects']:
-            users_interests[int(user)] = user_data.get('interests')
+            map_users[user_data['_id']] = {
+                "interests": user_data['interests'],
+                "original_pos": i
+            }
 
     target = ranker.rank(
-        context.user_data['interests'].copy(), users_interests)
+        context.user_data['interests'].copy(), map_users)
 
     if target is None:
         # Nao ha ninguem com as preferencias do usuario ainda
@@ -447,7 +463,8 @@ def show_person_command(update, context):
         return CHOOSE_ACTION
 
     # Daqui para frente, sabemos que uma pessoa similar existe
-    target_bio = db.get_user_by_id(target).get('bio')
+    target_index = map_users[target]['original_pos']
+    target_bio = allowed_users_data[target_index].get('bio')
 
     # Avisa no contexto que essa pessoa foi a ultima a ser exibida para o usuario (ajuda nas callback queries)
     context.user_data['lastShownId'] = target
@@ -504,15 +521,21 @@ def get_random_person_command(update, context):
         all_users, not_allowed_users, assume_unique=True
     )
 
-    # Preciso, ainda, tirar aqueles que me tem em sua lista de rejects
-    remove_index = []
-    for i, user in enumerate(allowed_users):
-        if myself in db.get_user_by_id(int(user)).get('rejects'):
-            remove_index.append(i)
-    allowed_users = np.delete(allowed_users, remove_index)
-
     # LEMBRAR QUE, A PARTIR DAQUI, TODOS OS USERS SÃO np.uint32 E NÃO int,
     # portanto o casting se faz necessario
+    allowed_users = allowed_users.astype(int)
+
+    # Pega as informacoes de todos os usuarios na DB
+    allowed_users_data = db.get_users_in_list(allowed_users.tolist())
+
+    # Preciso, ainda, tirar aqueles que me tem em sua lista de rejects
+    remove_index = []
+
+    for i, user_data in enumerate(allowed_users_data):
+        if myself in user_data.get('rejects'):
+            remove_index.append(i)
+
+    allowed_users = np.delete(allowed_users, remove_index)
 
     if len(allowed_users) == 0:
         update.message.reply_text(
@@ -520,7 +543,11 @@ def get_random_person_command(update, context):
         return CHOOSE_ACTION
 
     target = int(random.choice(allowed_users))
-    target_bio = db.get_user_by_id(target).get('bio')
+
+    for user_data in allowed_users_data:
+        if target == user_data['_id']:
+            target_bio = user_data['bio']
+            break
 
     # Avisa no contexto que essa pessoa foi a ultima a ser exibida para o usuario (ajuda nas callback queries)
     context.user_data['lastShownId'] = target
@@ -749,11 +776,10 @@ def friends_paginator(connections):
 
     cur_page_text = ''
 
-    # Adding friends info to the message
-    for user in connections:
-        # Get their info
-        user_info = db.get_user_by_id(user)
+    connections_info = db.get_users_in_list(list(connections))
 
+    # Adding friends info to the message
+    for user_info in connections_info:
         # Format their info on a string
         user_info_txt = f"{user_info['name']}\n"
         user_info_txt += f"{user_info['username']}\n\n"
@@ -871,8 +897,7 @@ def friends_command(update, context):
 
     # Se chegou ate aqui é porque ele tem conexoes
 
-    connections_set = unique_list(
-        context.user_data['connections']) if is_production else context.user_data['connections']
+    connections_set = unique_list(context.user_data['connections'])
 
     # Corrige as suas conexoes caso hajam repetições
     if len(connections_set) < len(context.user_data['connections']):
@@ -997,6 +1022,8 @@ def notify_command(update, context):
 
 
 def send_notification(update, context):
+
+    db.register_action('admin_notify', update.effective_user.id)
 
     all_chats = db.list_chat_ids()
 

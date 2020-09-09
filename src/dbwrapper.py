@@ -9,8 +9,6 @@ from datetime import datetime
 
 class Database:
     def __init__(self, connection_string, is_production=False):
-        self.__set_today_id()
-
         client = pymongo.MongoClient(connection_string)
         self.db = client['approxima']
 
@@ -24,12 +22,14 @@ class Database:
             tz_aware=True,
             tzinfo=pytz.timezone('America/Sao_Paulo')))
 
-        # ===================== TIRAR DAQUI DPS ==========================
+        self.today_id = self.__create_today_id()
         self.__create_today_doc()
+        self.users_doc_checked = {}  # Map from a user_id to a boolean
 
-    def __set_today_id(self):
+    def __create_today_id(self):
         today_date = datetime.utcnow()
-        self.today_id = f"{today_date.year}-{today_date.month}-{today_date.day}"
+        today_id = f"{today_date.year}-{today_date.month}-{today_date.day}"
+        return today_id
 
     def __create_today_user_doc(self, user_id):
         try:
@@ -66,6 +66,17 @@ class Database:
             return self.users.find_one({'_id': telegram_id})
         except:
             print("An exception occurred in the database while getting user by id:\n")
+            print(sys.exc_info()[0])
+
+    def get_users_in_list(self, users_list):
+        # Users list is a list of telegram ID's
+        try:
+            query = {"_id": {"$in": users_list}}
+            response = self.users.find(query)
+            return list(response)
+        except:
+            print(
+                "An exception occurred in the database while getting users in a list:\n")
             print(sys.exc_info()[0])
 
     def update_user_by_id(self, telegram_id, data):
@@ -106,6 +117,23 @@ class Database:
         # Additional data must be a dict if not none
         if additional_data is not None and not isinstance(additional_data, dict):
             raise ValueError("\"additional_data\" must be a dict.")
+
+        # Make sure that everything is ok with the Database before proceeding
+        tid = self.__create_today_id()
+        if tid != self.today_id:
+            # I am in another day!
+            self.today_id = tid
+            self.__create_today_doc()
+            self.__create_today_user_doc(user_id)
+            self.user_doc_checked = True
+        else:
+            # Se não existir a entrada para este usuario OU se o booleano for False...
+            if not self.users_doc_checked.get(user_id):
+                # I'm gonna check it!
+                query = {'_id': self.today_id, "active_users._id": user_id}
+                if not self.stats.find_one(query):
+                    self.__create_today_user_doc(user_id)
+                    self.users_doc_checked[user_id] = True
 
         action = {}
         action['timestamp'] = datetime.utcnow()

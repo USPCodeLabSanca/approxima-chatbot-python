@@ -11,6 +11,7 @@ from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Updater, Filters, CommandHandler, MessageHandler, ConversationHandler, CallbackQueryHandler
 from categories import CATEGORIES
 from utils import unique_list
+from timeit import default_timer as timer
 
 # ================================== ENV =======================================
 
@@ -451,6 +452,8 @@ def show_person_command(update, context):
     target = ranker.rank(
         context.user_data['interests'].copy(), map_users)
 
+    db.register_action('show_person_command', myself)
+
     if target is None:
         # Nao ha ninguem com as preferencias do usuario ainda
         response = "Parece que não há ninguém com os mesmos gostos que você no sistema ainda...\n\n"
@@ -537,6 +540,8 @@ def get_random_person_command(update, context):
 
     allowed_users = np.delete(allowed_users, remove_index)
 
+    db.register_action('random_person_command', myself)
+
     if len(allowed_users) == 0:
         update.message.reply_text(
             'Não tenho ninguém novo para te mostrar no momento... que tal tentar amanhã? :)')
@@ -576,6 +581,9 @@ def handle_invite_answer(update, context):
 
     update.callback_query.answer()  # awaits for answer
     answer = update.callback_query.data
+
+    db.register_action('answered_suggestion', myself,
+                       additional_data={'answer': answer})
 
     if answer == 'dismiss':
         context.user_data['rejects'].append(target_id)
@@ -631,6 +639,8 @@ def clear_rejected_command(update, context):
     # facilita na hora de referenciar esse usuario
     myself = update.effective_user.id
 
+    db.register_action('clear_rejects_command', myself)
+
     if len(context.user_data['rejects']) == 0:
         update.message.reply_text(
             'Você não \"rejeitou\" ninguém por enquanto.')
@@ -661,6 +671,8 @@ def pending_command(update, context):
     my_data = db.get_user_by_id(myself)
 
     context.user_data['pending'] = my_data['pending']
+
+    db.register_action('pending_command', myself)
 
     if len(context.user_data['pending']) == 0:
         update.message.reply_text(
@@ -710,6 +722,9 @@ def handle_pending_answer(update, context):
 
     update.callback_query.answer()  # awaits for answer
     answer = update.callback_query.data
+
+    db.register_action('answered_pending', myself,
+                       additional_data={'answer': answer})
 
     if answer == 'reject':
         context.user_data['rejects'].append(target_id)
@@ -879,6 +894,8 @@ def friends_command(update, context):
     já se conectou.
     '''
 
+    start_t = timer()   # When want to store how long this function takes to complete
+
     # facilita na hora de referenciar esse usuario
     myself = update.effective_user.id
 
@@ -922,6 +939,12 @@ def friends_command(update, context):
     keyboard = [[InlineKeyboardButton(
         text, callback_data=callback) for text, callback in button_pairs]]
 
+    end_t = timer()
+
+    ellapsed_t = end_t - start_t
+    db.register_action('friends_command', myself, additional_data={
+                       'ellapsed_time': ellapsed_t})
+
     update.message.reply_text(
         response, reply_markup=InlineKeyboardMarkup(keyboard))
 
@@ -961,6 +984,8 @@ def change_friends_page(update, context):
 
 
 def handle_incorrect_choice(update, context):
+    db.register_action('user_ignored_buttons', update.effective_user.id)
+
     context.bot.sendMessage(chat_id=context.user_data['chat_id'],
                             text='Você deve decidir a sua ação acerca do usuário acima antes de prosseguir.')
 
@@ -971,6 +996,8 @@ def prefs_unknown_message(update, context):
     '''
     Mensagem ou comando desconhecido (dentro da conversa de selecionar interesses)
     '''
+    db.register_action('prefs_wrong_action', update.effective_user.id)
+
     response_message = "Por favor, clique em ENVIAR para terminar de atualizar as suas preferências."
     update.message.reply_text(response_message)
 
@@ -986,6 +1013,7 @@ def unknown_message(update, context):
     '''
     Mensagem ou comando desconhecido
     '''
+
     response_message = "Não entendi! Por favor, use um comando válido...\nUse /help se estiver com dificuldades."
     update.message.reply_text(response_message)
 
@@ -1016,14 +1044,14 @@ def notify_command(update, context):
     response += "Me informe a mensagem que deseja mandar para TODOS os usuários do Approxima.\n"
     response += "PS: Lembre-se de usar esse recurso com responsabilidade :)"
 
+    db.register_action('notify_command', myself)
+
     update.message.reply_text(response)
 
     return SEND_NOTIFICATION
 
 
 def send_notification(update, context):
-
-    db.register_action('admin_notify', update.effective_user.id)
 
     all_chats = db.list_chat_ids()
 
@@ -1036,6 +1064,9 @@ def send_notification(update, context):
     # Avisa que esse admin mandou o broadcast
     logger.info(
         f"{context.user_data['name']} mandou uma notificação para todos os usuários: {update.message.text}")
+
+    db.register_action('admin_notified', update.effective_user.id,
+                       additional_data={'message': update.message.text})
 
     return CHOOSE_ACTION
 

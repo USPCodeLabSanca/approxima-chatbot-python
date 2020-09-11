@@ -761,7 +761,8 @@ def handle_pending_answer(update, context):
 
     target_chat = target_data['chat_id']
 
-    text_target = 'Uma pessoa acaba de aceitar seu pedido de conexão! Use o comando /friends para checar.'
+    text_target = 'Uma pessoa acaba de aceitar seu pedido de conexão! Use o comando /friends para checar.\n'
+    text_target += 'Ela estará no final da última página.'
 
     context.bot.sendMessage(chat_id=target_chat,
                             text=text_target)
